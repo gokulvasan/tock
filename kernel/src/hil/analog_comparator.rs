@@ -30,4 +30,12 @@ pub trait AnalogComparator {
     /// Specifically, the output will be 1 when Vn_x+1 < Vcommon < Vp_x, and 0
     /// if Vcommon < Vn_x+1 or Vcommon > Vp_x.
     fn window_comparison(&self, usize) -> bool;
+
+    /// Enable interrupts
+    fn enable_interrupts(&self, usize) -> ReturnCode;
+}
+
+pub trait Client {
+    /// Receive the successful result of an ACIFC calculation. For now don't do anything.
+    fn fired(&self, sample: u16);
 }

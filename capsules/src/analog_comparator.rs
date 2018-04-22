@@ -55,7 +55,35 @@ impl<'a, A: hil::analog_comparator::AnalogComparator> Driver for AnalogComparato
                 value: self.ac.window_comparison(data) as usize,
             },
 
+            4 => self.ac.enable_interrupts(data),
+            
             _ => return ReturnCode::ENOSUPPORT,
         }
     }
+}
+
+impl<'a, A: hil::analog_comparator::AnalogComparator> hil::analog_comparator::Client for AnalogComparator<'a, A> {
+    fn fired(&self) {
+    //     if let Some(appid) = self.serving_app.get() {
+    //         self.apps
+    //             .enter(appid, |app, _| {
+    //                 if let Some(mut callback) = app.callback {
+    //                     callback.schedule(From::from(ReturnCode::SUCCESS), result as usize, 0);
+    //                 }
+    //                 app.waiting = None;
+    //             })
+    //             .unwrap_or_else(|err| match err {
+    //                 Error::OutOfMemory => {}
+    //                 Error::AddressOutOfBounds => {}
+    //                 Error::NoSuchApp => {}
+    //             });
+
+    //         self.serving_app.set(None);
+    //         self.serve_waiting_apps();
+    //     } else {
+    //         // Ignore orphaned computation
+    //     }
+    }
+    
+    //callback.schedule(From::from(ReturnCode::SUCCESS), result as usize, 0);
 }

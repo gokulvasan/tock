@@ -457,6 +457,7 @@ pub unsafe fn reset_handler() {
         capsules::analog_comparator::AnalogComparator<'static, sam4l::acifc::Acifc>,
         capsules::analog_comparator::AnalogComparator::new(&mut sam4l::acifc::ACIFC)
     );
+    sam4l::acifc::Acifc.set_client(analog_comparator);
 
     let hail = Hail {
         console: console,
