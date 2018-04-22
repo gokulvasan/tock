@@ -37,5 +37,5 @@ pub trait AnalogComparator {
 
 pub trait Client {
     /// Receive the successful result of an ACIFC calculation. For now don't do anything.
-    fn fired(&self, sample: u16);
+    fn fired(&self);
 }
