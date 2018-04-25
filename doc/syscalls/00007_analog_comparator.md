@@ -2,139 +2,79 @@
 driver number: 0x00007
 ---
 
-# Analog Comparator
+# ACIFC (Analog Comparator Interface)
 
 ## Overview
 
 The Analog Comparator Interface (ACIFC) controls a number of Analog Comparators
-(AC) with identical behavior. Each Analog Comparator compares two voltages and
-gives a compare output depending on this comparison.
+(ACs) with identical behavior. Each Analog Comparator compares two voltages and
+gives an output depending on this comparison. ACs can be first of all be
+configured in the 'normal mode', in which each AC performs a comparison of two
+voltages. The other option for comparison is the 'window mode', in which a
+voltage can be compared against a window of two voltages.
 
-A specific AC is referred to as ACx where x is any number from 0 to n and n is
-the index of last AC module.
+A specific AC is referred to as ACx, where x is any number from 0 to n, and n is
+the index of the last AC module.
 
 ## Command
 
   * ### Command number: `0`
 
-    **Description**: How many GPIO pins are supported on this board.
+    **Description**: Does the driver exist?
 
     **Argument 1**: unused
 
     **Argument 2**: unused
 
-    **Returns**: The number of pins on the board, or `ENODEVICE` if this driver
-    is not present on the board.
-
+    **Returns**: SUCCESS if it exists, otherwise ENODEVICE
 
   * ### Command number: `1`
 
-    **Description**: Enable output on a GPIO pin. After enabling output,
-    output-related operations on the pin (`set`, `clear`, `toggle`) are
-    available. Using input operations on a pin in this state is undefined.
+    **Description**: Initialize the ACIFC by enabling the clock, activating the
+    ACs (Analog Comparators). Currently in initialization always-on mode is
+    enabled, allowing a measurement on an AC to be made quickly after a
+    measurement is triggered, without waiting for the AC startup time. The
+    drawback is that when the AC is always on the power dissipation will be
+    higher.
 
-    **Argument 1**: The index of the GPIO pin to enable output for, starting at
-    0.
+    **Argument 1**: unused
 
     **Argument 2**: unused
 
-    **Returns**: SUCCESS if the command was successful, and `EINVAL` if the
-    argument refers to a non-existent pin.
+    **Returns**: SUCCESS if the initialization was succesful
+
 
   * ### Command number: `2`
 
-    **Description**: Set the output of a GPIO pin (high). Using this command
-    without first enabling output is undefined.
+    **Description**: Do a comparison of two inputs, referred to as the positive
+    input voltage and the negative input voltage (Vinp and Vinn).
 
-    **Argument 1**: The index of the GPIO pin to set, starting at 0.
+    **Argument 1**: The index of the Analog Comparator for which the comparison
+    needs to be made, starting at 0.
 
     **Argument 2**: unused
 
-    **Returns**: `SUCCESS` if the pin index is valid, `EINVAL` otherwise.
+    **Returns**: The output of this function is 1 when Vinp > Vinn, and 0 if
+    Vinp < Vinn.
 
   * ### Command number: `3`
 
-    **Description**: Clear the output of a GPIO pin (low). Using this command
-    without first enabling output is undefined.
+    **Description**: Do a comparison of three input voltages. Two ACs, ACx and
+    ACx+1 are grouped for this comparison. The sources of the negative input of
+    ACx (Vn_x) and the positive input of ACx+1 (Vp_x+1) must be connected
+    together externally. These form the common voltage Vcommon. The other two
+    remaining sources, being the positive input of ACx (Vp_x) and negative input
+    of ACx+1 (Vn_x+1) then define an upper and a lower bound of a window. The
+    result then depends on Vcommon lying inside of outside of this window.
 
-    **Argument 1**: The index of the GPIO pin to clear, starting at 0.
-
-    **Argument 2**: unused
-
-    **Returns**: `SUCCESS` if the pin index is valid, `EINVAL` otherwise.
-
-  * ### Command number: `4`
-
-    **Description**: Toggle the output of a GPIO pin. If the pin was
-    previously high, this operation clears it. If it was previously low, sets
-    it. Using this command without first enabling output is undefined.
-
-    **Argument 1**: The index of the GPIO pin to toggle, starting at 0.
+    **Argument 1**: The index of the window for which to do a window comparison,
+    starting at 0. For example, window 0 is the combination of ACx and ACx+1,
+    window 1 is the combination of ACx+2 and ACx+3 etcetera.
 
     **Argument 2**: unused
 
-    **Returns**: `SUCCESS` if the pin index is valid, `EINVAL` otherwise.
-
-  * ### Command number: `5`
-
-    **Description**: Enable and configure input on a GPIO pin. After enabling
-    input, input-related operations on the pin (e.g. `read`) are available.
-    Using output operations on a pin in this state is undefined.
-
-    **Argument 1**: The index of the GPIO pin to toggle, starting at 0.
-
-    **Argument 2**: requested resistor to attach to the pin: `0` for pull-none,
-    `1` for pull-up, or `2` for pull-down.
-
-    **Returns**: `SUCCESS` if the pin index is valid, `EINVAL` if it is
-    invalid, and `ENOSUPPORT` if the resistor configuration is not supported by
-    the hardware.
-
-  * ### Command number: `6`
-
-    **Description**: Read the current value of a GPIO pin.
-
-    **Argument 1**: The index of the GPIO pin to read, starting at 0.
-
-    **Argument 2**: unused
-
-    **Returns**: `EINVAL` if the index of the pin is invalid, `1` if the value
-    of the pin is high or `0` if it is low.
-
-  * ### Command number: `7`
-
-    **Description**: Configure interrupts on a GPIO pin.
-    After enabling interrupts, the callback set in subscribe will be called
-    when a the pin level changes.
-    Using this command without first enabling input is undefined.
-
-    **Argument 1**: The index of the GPIO pin to read, starting at 0.
-
-    **Argument 2**: Indicates which events trigger callbacks: `0` for either
-    edge, `1` for rising edge, or `2` for falling edge.
-
-    **Returns**: `SUCCESS` if the pin index is valid, `EINVAL` if it is
-    invalid, and `ENOSUPPORT` if an invalid interrupt mode is passed in the
-    configuration field of the argument.
-
-## Subscribe
-
-  * ### Subscribe number: `0`
-
-    **Description**: Subscribe a callback that will fire when any GPIO pin whose
-    interrupts have been enabled changes level. Registering the callback does
-    not have an effect on whether any GPIO pin interrupts are enabled.
-
-    **Callback signature**: The callback receives two arguments. The first is
-    the index of the GPIO pin whose level has changed, and the second is value
-    of the pin when the interrupt occurred. The second argument has the same
-    semantics as the return value for the `read` command: `0` for low, `1` for
-    high.
-
-    **Returns**: SUCCESS if the subscribe was successful, ENOMEM if the driver
-    cannot support another app, and `EINVAL` if the app is somehow invalid.
-
-## Allow
-
-Unused for the GPIO driver. Will always return `ENOSUPPORT`.
-
+    **Returns**: When the voltage of Vcommon lies inside the window defined by
+    the positive input of ACx and the negative input of ACx+1, the output will
+    be 1; it will be 0 if it is outside of the window. Specifically, the output
+    will be 1 when Vn_x+1 < Vcommon < Vp_x, and 0 if Vcommon < Vn_x+1 or Vcommon
+    > Vp_x.
