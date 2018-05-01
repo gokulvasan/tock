@@ -19,7 +19,7 @@ pub trait AnalogComparator {
     fn comparison(&self, usize) -> bool;
 
     /// Do a comparison of three input voltages. Two analog comparators, ACx and ACx+1 are
-    /// grouped for this comparison depending on the window chosen . They each have a positive and negative input: we
+    /// grouped for this comparison depending on the window chosen. They each have a positive and negative input: we
     /// define these respectively as (Vp_x and Vn_x) for ACx and (Vp_x+1 and Vn_x+1) for ACx+1. 
     /// The sources of the negative input of ACx
     /// (Vn_x) and the positive input of ACx+1 (Vp_x+1) must be connected
