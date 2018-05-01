@@ -8,6 +8,26 @@
 //! capsules::analog_comparator::AnalogComparator::new(&mut sam4l::acifc::ACIFC));
 //! ```
 //!
+//! ## Number of Analog Comparators
+//! The number of analog comparators (ACs) available depends on the microcontroller used.
+//! For example, the Atmel SAM4L is a commonly used microcontroller for Tock.
+//! It comes in three different versions: a 48-pin, a 64-pin and a 100-pin version.
+//! On the 48-pin version, one AC is available. 
+//! On the 64-pin version, two ACs are available.
+//! On the 100-pin version, four ACs are available.
+//! The Hail is an example of a board with the 64-pin version of the SAM4L, and therefore supports two ACs.
+//! These two ACs are addressable by AC0 or AC1. 
+//! On the other hand, the Imix has a 100-pin version of the SAM4L, and therefore supports four ACs. 
+//! These four ACs are addressable by AC0, AC1, AC2 and AC3. 
+//! 
+//! ## Window Comparison
+//! To do a window comparison, two ACs are necessary. 
+//! Therefore, the number available windows on a microcontroller will be half the number of ACs.
+//! For instance, looking at the above "Number of Analog Comparators" explanation,
+//! this means the Hail has one window and the Imix has two windows.
+//! 
+//! For more information on how this capsule works, please take a look at the readme: 00007_analog_comparator.md in doc/syscalls.
+//! 
 //! Author: Danilo Verhaert <verhaert@cs.stanford.edu>
 
 /// Syscall driver number.
