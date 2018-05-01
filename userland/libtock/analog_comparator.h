@@ -14,10 +14,10 @@ int acifc_exists(void);
 // Initialize and enable the DAC.
 int initialize_acifc(void);
 
-// Comparing the voltages of two pins (if one is higher than the other)
+// Compare the voltages of two pins (if one is higher than the other) on the corresponding AC.
 bool comparison(uint8_t);
 
-// Compare the voltages of three pins (if one is between the other two)
+// Compare the voltages of three pins (if one is between the other two) on the corresponding window.
 bool window_comparison(uint8_t);
 
 #ifdef __cplusplus
