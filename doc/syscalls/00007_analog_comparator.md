@@ -2,7 +2,7 @@
 driver number: 0x00007
 ---
 
-# ACIFC (Analog Comparator Interface)
+# Analog Comparator
 
 ## Overview
 
