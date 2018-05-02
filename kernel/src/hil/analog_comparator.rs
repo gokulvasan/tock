@@ -18,7 +18,7 @@ pub trait AnalogComparator {
     /// negative), and False if Vp < Vn.
     fn comparison(&self, usize) -> bool;
 
-    /// Do a comparison of three input voltages. Two analog comparators, ACx and ACx+1 are
+    /// Do a comparison of three input voltages. Two analog comparators, ACx and ACx+1, are
     /// grouped for this comparison depending on the window chosen. They each have a positive and negative input: we
     /// define these respectively as (Vp_x and Vn_x) for ACx and (Vp_x+1 and Vn_x+1) for ACx+1. 
     /// The sources of the negative input of ACx
