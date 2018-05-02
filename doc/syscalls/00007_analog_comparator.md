@@ -6,10 +6,10 @@ driver number: 0x00007
 
 ## Overview
 
-The Analog Comparator Interface (ACIFC) controls a number of Analog Comparators
-(ACs) with identical behavior. Each Analog Comparator compares two voltages and
-gives an output depending on this comparison. ACs can be first of all be
-configured in the 'normal mode', in which each AC performs a comparison of two
+The Analog Comparator driver allows userspace to compare voltages and
+gives an output depending on this comparison. 
+
+Analog Comparators (ACs) can be first of all be configured in the 'normal mode', in which each AC performs a comparison of two
 voltages. The other option for comparison is the 'window mode', in which a
 voltage can be compared against a window of two voltages.
 
