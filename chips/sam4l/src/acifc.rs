@@ -22,9 +22,10 @@
 // - Implement handling of interrupts
 // - Implement other modes, e.g. user and peripheral triggered comparison
 
+use core::cell::Cell;
 use kernel::{ReturnCode, StaticRef};
 use kernel::common::regs::{ReadOnly, ReadWrite, WriteOnly};
-use kernel::hil;
+use kernel::hil::analog_comparator;
 use pm;
 
 #[repr(C)]
@@ -236,19 +237,15 @@ const BASE_ADDRESS: *mut AcifcRegisters = 0x40040000 as *mut AcifcRegisters;
 const ACIFC_REGS: StaticRef<AcifcRegisters> =
     unsafe { StaticRef::new(BASE_ADDRESS as *const AcifcRegisters) };
 
-pub struct Acifc {
-    //registers: *mut AcifcRegisters,
-    //client: Option<&'a acifc::Client>,
+pub struct Acifc<'a> {
+    client: Cell<Option<&'a analog_comparator::Client>>,
 }
 
-pub static mut ACIFC: Acifc = Acifc::new();
-
 /// Implement constructor for struct Acifc
-impl Acifc {
-    const fn new() -> Self {
+impl<'a> Acifc<'a> {
+    const fn new() -> Acifc<'a> {
         Acifc {
-            //registers: BASE_ADDRESS,
-            //client: Cell::new(None),
+            client: Cell::new(None),
         }
     }
 
@@ -256,31 +253,49 @@ impl Acifc {
         pm::enable_clock(pm::Clock::PBA(pm::PBAClock::ACIFC));
     }
 
-    pub fn set_client(&self) -> ReturnCode {
-        ReturnCode::SUCCESS
+    pub fn set_client(&self, client: &'a analog_comparator::Client) {
+        self.client.set(Some(client));
+    }
+    /// Enable interrupts for the window or startup modes
+    fn enable_interrupts(&self, ac: usize) {
+        let regs = ACIFC_REGS;
+		// Currently using default mode Vin_p > Vin_n. Can be changed by editing the ACConfiguration/CONFx register.
+		// Also currently only using interrupts for analog comparator 1, other analog comparators can also be set.
+        regs.ier.write(Interrupt::ACINT1::SET);
     }
 
-    /// Functions which (should) enable interrupts for the window or startup modes
-    //fn enable_interrupts(&self) {
-	// 	unimplemented!("ACIFC enabling interrupts");
-    //     let regs = ACIFC_REGS;
-    //     regs.ier
-    //         .write(Interrupt::ACINT0::SET + Interrupt::ACINT1::SET);
-    // }
-
-    //fn disable_interrupts(&self) {
-	// 	unimplemented!("ACIFC enabling interrupts");
-    //     let regs = ACIFC_REGS;
-    //     regs.idr
-    //         .write(Interrupt::ACINT0::SET + Interrupt::ACINT1::SET);
-    // }
-
-    /// Handling interrupts not yet implemented.
+    /// Handling of interrupts. Currently set up so that an interrupt fires only once when the condition is true (e.g. Vinp > Vinn), and then doesn't fire anymore until the condition is false (e.g. Vinp < Vinn).
     pub fn handle_interrupt(&mut self) {
-        unimplemented!("ACIFC handling of interrupts");
+        let regs = ACIFC_REGS;
+
+		// Return if we had a pending interrupt while we already set IMR to 0 (edge case)
+		// if !regs.imr.is_set(Interrupt::ACINT1) {
+        //     return;
+        // }
+
+		// Disable IMR, making sure no more interrupts can occur until we write to IER
+		regs.idr.write(Interrupt::ACINT1::SET);
+
+		// If Vinp > Vinn, throw an interrupt to the client, and set the AC so that it will throw an interrupt only when Vinn < Vinp. This way we won't get a barrage of interrupts as soon as Vinp > Vinn: we'll get just one.
+		// if !regs.conf[1].is_set(ACConfiguration::IS) {
+			self.client.get().map(|client| {
+            	client.fired();
+        	});
+		// 	regs.conf[1].modify(ACConfiguration::IS::WhenVinpLtVinn);
+		// 	// Clear the interrupt request
+		// }
+		// // If Vinp < Vinn, set the AC so that it will throw an interrupt when Vinp > Vinn.
+		// else {
+		// //if regs.conf[1].is_set(ACConfiguration::IS){
+		// 	regs.conf[1].modify(ACConfiguration::IS::WhenVinpGtVinn);
+		// }
+
+		// Clear the interrupt request
+		regs.icr.write(Interrupt::ACINT1::SET);
+		regs.ier.write(Interrupt::ACINT1::SET);
     }
 
-    fn initialize_acifc(&self) {
+    fn enable(&self) {
         let regs = ACIFC_REGS;
         self.enable_clock();
         regs.ctrl.write(Control::EN::SET);
@@ -298,9 +313,6 @@ impl Acifc {
         regs.conf[3].write(
             ACConfiguration::MODE::ContinuousMeasurementMode + ACConfiguration::ALWAYSON::SET,
         );
-
-        // Enable interrupts? Not yet used.
-        // self.enable_interrupts();
     }
 
     fn comparison(&self, ac: usize) -> bool {
@@ -332,9 +344,9 @@ impl Acifc {
     }
 }
 
-impl hil::analog_comparator::AnalogComparator for Acifc {
-    fn initialize_acifc(&self) -> ReturnCode {
-        self.initialize_acifc();
+impl<'a> analog_comparator::AnalogComparator for Acifc<'a> {
+    fn enable(&self) -> ReturnCode {
+        self.enable();
         return ReturnCode::SUCCESS;
     }
 
@@ -345,4 +357,12 @@ impl hil::analog_comparator::AnalogComparator for Acifc {
     fn window_comparison(&self, data: usize) -> bool {
         self.window_comparison(data)
     }
+
+	fn enable_interrupts(&self, data: usize) -> ReturnCode {
+		self.enable_interrupts(data);
+		return ReturnCode::SUCCESS;
+	}
 }
+
+/// Static state to manage the ACIFC
+pub static mut ACIFC: Acifc = Acifc::new();
