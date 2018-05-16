@@ -79,8 +79,10 @@ struct Imix {
     adc: &'static capsules::adc::Adc<'static, sam4l::adc::Adc>,
     led: &'static capsules::led::LED<'static, sam4l::gpio::GPIOPin>,
     button: &'static capsules::button::Button<'static, sam4l::gpio::GPIOPin>,
-    analog_comparator:
-        &'static capsules::analog_comparator::AnalogComparator<'static, sam4l::acifc::Acifc>,
+    analog_comparator: &'static capsules::analog_comparator::AnalogComparator<
+        'static,
+        sam4l::acifc::Acifc<'static>,
+    >,
     spi: &'static capsules::spi::Spi<'static, VirtualSpiMasterDevice<'static, sam4l::spi::SpiHw>>,
     ipc: kernel::ipc::IPC,
     ninedof: &'static capsules::ninedof::NineDof<'static>,
@@ -509,10 +511,12 @@ pub unsafe fn reset_handler() {
         capsules::crc::Crc::new(&mut sam4l::crccu::CRCCU, kernel::Grant::create())
     );
 
+    // ACIFC
     let analog_comparator = static_init!(
         capsules::analog_comparator::AnalogComparator<'static, sam4l::acifc::Acifc>,
         capsules::analog_comparator::AnalogComparator::new(&mut sam4l::acifc::ACIFC)
     );
+    sam4l::acifc::ACIFC.set_client(analog_comparator);
 
     rf233_spi.set_client(rf233);
     rf233.initialize(&mut RF233_BUF, &mut RF233_REG_WRITE, &mut RF233_REG_READ);
