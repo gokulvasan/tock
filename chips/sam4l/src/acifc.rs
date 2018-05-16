@@ -259,9 +259,24 @@ impl<'a> Acifc<'a> {
     /// Enable interrupts for the window or startup modes
     fn enable_interrupts(&self, ac: usize) {
         let regs = ACIFC_REGS;
-		// Currently using default mode Vin_p > Vin_n. Can be changed by editing the ACConfiguration/CONFx register.
-		// Also currently only using interrupts for analog comparator 1, other analog comparators can also be set.
-        regs.ier.write(Interrupt::ACINT1::SET);
+
+		if ac == 0 {
+			// Currently using default mode Vin_p > Vin_n. Can be changed by editing the ACConfiguration/CONFx register.
+        	regs.ier.write(Interrupt::ACINT0::SET);
+
+			// Just to be sure, write the interrupt settings to 00 such that it triggers when Vinp > Vinn
+			regs.conf[0].modify(
+				ACConfiguration::IS::WhenVinpGtVinn
+		);
+		}
+		else if ac == 1 {
+			regs.ier.write(Interrupt::ACINT1::SET);
+
+			// Just to be sure, write the interrupt settings to 00 such that it triggers when Vinp > Vinn
+			regs.conf[1].modify(
+			ACConfiguration::IS::WhenVinpGtVinn
+		);
+		}
     }
 
     /// Handling of interrupts. Currently set up so that an interrupt fires only once when the condition is true (e.g. Vinp > Vinn), and then doesn't fire anymore until the condition is false (e.g. Vinp < Vinn).
@@ -269,9 +284,9 @@ impl<'a> Acifc<'a> {
         let regs = ACIFC_REGS;
 
 		// Return if we had a pending interrupt while we already set IMR to 0 (edge case)
-		// if !regs.imr.is_set(Interrupt::ACINT1) {
-        //     return;
-        // }
+		if !regs.imr.is_set(Interrupt::ACINT1) {
+            return;
+        }
 
 		// Disable IMR, making sure no more interrupts can occur until we write to IER
 		regs.idr.write(Interrupt::ACINT1::SET);
