@@ -260,54 +260,49 @@ impl<'a> Acifc<'a> {
     fn enable_interrupts(&self, ac: usize) {
         let regs = ACIFC_REGS;
 
-		if ac == 0 {
-			// Currently using default mode Vin_p > Vin_n. Can be changed by editing the ACConfiguration/CONFx register.
-        	regs.ier.write(Interrupt::ACINT0::SET);
+        if ac == 0 {
+            // Currently using default mode Vin_p > Vin_n. Can be changed by editing the ACConfiguration/CONFx register.
+            regs.ier.write(Interrupt::ACINT0::SET);
 
-			// Just to be sure, write the interrupt settings to 00 such that it triggers when Vinp > Vinn
-			regs.conf[0].modify(
-				ACConfiguration::IS::WhenVinpGtVinn
-		);
-		}
-		else if ac == 1 {
-			regs.ier.write(Interrupt::ACINT1::SET);
+            // Just to be sure, write the interrupt settings to 00 such that it triggers when Vinp > Vinn
+            regs.conf[0].modify(ACConfiguration::IS::WhenVinpGtVinn);
+        } else if ac == 1 {
+            regs.ier.write(Interrupt::ACINT1::SET);
 
-			// Just to be sure, write the interrupt settings to 00 such that it triggers when Vinp > Vinn
-			regs.conf[1].modify(
-			ACConfiguration::IS::WhenVinpGtVinn
-		);
-		}
+            // Just to be sure, write the interrupt settings to 00 such that it triggers when Vinp > Vinn
+            regs.conf[1].modify(ACConfiguration::IS::WhenVinpGtVinn);
+        }
     }
 
     /// Handling of interrupts. Currently set up so that an interrupt fires only once when the condition is true (e.g. Vinp > Vinn), and then doesn't fire anymore until the condition is false (e.g. Vinp < Vinn).
     pub fn handle_interrupt(&mut self) {
         let regs = ACIFC_REGS;
 
-		// Return if we had a pending interrupt while we already set IMR to 0 (edge case)
-		if !regs.imr.is_set(Interrupt::ACINT1) {
+        // Return if we had a pending interrupt while we already set IMR to 0 (edge case)
+        if !regs.imr.is_set(Interrupt::ACINT1) {
             return;
         }
 
-		// Disable IMR, making sure no more interrupts can occur until we write to IER
-		regs.idr.write(Interrupt::ACINT1::SET);
+        // Disable IMR, making sure no more interrupts can occur until we write to IER
+        regs.idr.write(Interrupt::ACINT1::SET);
 
-		// If Vinp > Vinn, throw an interrupt to the client, and set the AC so that it will throw an interrupt only when Vinn < Vinp. This way we won't get a barrage of interrupts as soon as Vinp > Vinn: we'll get just one.
-		// if !regs.conf[1].is_set(ACConfiguration::IS) {
-			self.client.get().map(|client| {
-            	client.fired();
-        	});
-		// 	regs.conf[1].modify(ACConfiguration::IS::WhenVinpLtVinn);
-		// 	// Clear the interrupt request
-		// }
-		// // If Vinp < Vinn, set the AC so that it will throw an interrupt when Vinp > Vinn.
-		// else {
-		// //if regs.conf[1].is_set(ACConfiguration::IS){
-		// 	regs.conf[1].modify(ACConfiguration::IS::WhenVinpGtVinn);
-		// }
+        // If Vinp > Vinn, throw an interrupt to the client, and set the AC so that it will throw an interrupt only when Vinn < Vinp. This way we won't get a barrage of interrupts as soon as Vinp > Vinn: we'll get just one.
+        // if !regs.conf[1].is_set(ACConfiguration::IS) {
+        self.client.get().map(|client| {
+            client.fired();
+        });
+        // 	regs.conf[1].modify(ACConfiguration::IS::WhenVinpLtVinn);
+        // 	// Clear the interrupt request
+        // }
+        // // If Vinp < Vinn, set the AC so that it will throw an interrupt when Vinp > Vinn.
+        // else {
+        // //if regs.conf[1].is_set(ACConfiguration::IS){
+        // 	regs.conf[1].modify(ACConfiguration::IS::WhenVinpGtVinn);
+        // }
 
-		// Clear the interrupt request
-		regs.icr.write(Interrupt::ACINT1::SET);
-		regs.ier.write(Interrupt::ACINT1::SET);
+        // Clear the interrupt request
+        regs.icr.write(Interrupt::ACINT1::SET);
+        regs.ier.write(Interrupt::ACINT1::SET);
     }
 
     fn enable(&self) {
@@ -373,10 +368,10 @@ impl<'a> analog_comparator::AnalogComparator for Acifc<'a> {
         self.window_comparison(data)
     }
 
-	fn enable_interrupts(&self, data: usize) -> ReturnCode {
-		self.enable_interrupts(data);
-		return ReturnCode::SUCCESS;
-	}
+    fn enable_interrupts(&self, data: usize) -> ReturnCode {
+        self.enable_interrupts(data);
+        return ReturnCode::SUCCESS;
+    }
 }
 
 /// Static state to manage the ACIFC

@@ -45,9 +45,9 @@ static void ac_window_comparison_polling(uint8_t window) {
 
 // Callback for AC interrupts. Currently empty, arguments could be sent.
 static void ac_cb (__attribute__ ((unused)) int arg0,
-                      __attribute__ ((unused)) int arg1,
-                      __attribute__ ((unused)) int arg2,
-                      __attribute__ ((unused)) void* userdata) {}
+                   __attribute__ ((unused)) int arg1,
+                   __attribute__ ((unused)) int arg2,
+                   __attribute__ ((unused)) void* userdata) {}
 
 static void ac_comparison_interrupt(uint8_t ac) {
   // Enable AC interrupts

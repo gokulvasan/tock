@@ -74,8 +74,10 @@ struct Hail {
     ipc: kernel::ipc::IPC,
     crc: &'static capsules::crc::Crc<'static, sam4l::crccu::Crccu<'static>>,
     dac: &'static capsules::dac::Dac<'static>,
-    analog_comparator:
-        &'static capsules::analog_comparator::AnalogComparator<'static, sam4l::acifc::Acifc<'static>>,
+    analog_comparator: &'static capsules::analog_comparator::AnalogComparator<
+        'static,
+        sam4l::acifc::Acifc<'static>,
+    >,
 }
 
 /// Mapping of integer syscalls to objects that implement syscalls.
