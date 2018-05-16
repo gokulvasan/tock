@@ -10,11 +10,11 @@ pub trait AnalogComparator {
     /// allowing a measurement on an AC to be made quickly after a measurement
     /// is triggered, without waiting for the AC startup time. The drawback is
     /// that when the AC is always on the power dissipation will be higher.
-    fn initialize_acifc(&self) -> ReturnCode;
+    fn enable(&self) -> ReturnCode;
 
     /// Do a comparison of two inputs, depending on the AC chosen. Output will
     /// be True (1) when one is higher than the other, and False (0) otherwise.
-    /// Specifically, the output is True when Vp>Vn (Vin positive > Vin 
+    /// Specifically, the output is True when Vp > Vn (Vin positive > Vin 
     /// negative), and False if Vp < Vn.
     fn comparison(&self, usize) -> bool;
 
@@ -35,7 +35,7 @@ pub trait AnalogComparator {
     /// if Vcommon < Vn_x+1 or Vcommon > Vp_x.
     fn window_comparison(&self, usize) -> bool;
 
-    /// Enable interrupts
+    /// Enable interrupts. This will make the AC corresponding to the variable passed send an interrupt when Vp > Vn.
     fn enable_interrupts(&self, usize) -> ReturnCode;
 }
 

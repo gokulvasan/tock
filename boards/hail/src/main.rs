@@ -75,7 +75,7 @@ struct Hail {
     crc: &'static capsules::crc::Crc<'static, sam4l::crccu::Crccu<'static>>,
     dac: &'static capsules::dac::Dac<'static>,
     analog_comparator:
-        &'static capsules::analog_comparator::AnalogComparator<'static, sam4l::acifc::Acifc>,
+        &'static capsules::analog_comparator::AnalogComparator<'static, sam4l::acifc::Acifc<'static>>,
 }
 
 /// Mapping of integer syscalls to objects that implement syscalls.
@@ -457,7 +457,7 @@ pub unsafe fn reset_handler() {
         capsules::analog_comparator::AnalogComparator<'static, sam4l::acifc::Acifc>,
         capsules::analog_comparator::AnalogComparator::new(&mut sam4l::acifc::ACIFC)
     );
-    sam4l::acifc::Acifc.set_client(analog_comparator);
+    sam4l::acifc::ACIFC.set_client(analog_comparator);
 
     let hail = Hail {
         console: console,
