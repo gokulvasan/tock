@@ -9,6 +9,7 @@ extern crate kernel;
 pub mod test;
 
 pub mod adc;
+pub mod analog_comparator;
 pub mod alarm;
 pub mod ambient_light;
 pub mod app_flash_driver;
