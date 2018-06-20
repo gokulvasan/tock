@@ -65,7 +65,9 @@ impl<'a, A: hil::analog_comparator::AnalogComparator> Driver for AnalogComparato
     /// - `3`: Perform a window comparison.
     ///        Input x chooses the desired window Windowx (e.g. 0 for
     ///        hail, 0 or 1 for imix)
-    /// - `4`: Test the ACIFC for basic  functionality.
+    /// - `4`: Enable interrupt-based comparisons.
+    ///        Input x chooses the desired comparator ACx (e.g. 0 or 1 for
+    ///        hail, 0-3 for imix)
     fn command(&self, command_num: usize, data: usize, _: usize, _: AppId) -> ReturnCode {
         match command_num {
             0 => return ReturnCode::SUCCESS,
@@ -108,6 +110,9 @@ impl<'a, A: hil::analog_comparator::AnalogComparator> hil::analog_comparator::Cl
     for AnalogComparator<'a, A>
 {
     fn fired(&self) {
-        self.callback.get().unwrap().schedule(0, 0, 0);
+        // Callback to userland
+        self.callback.get().map_or_else(|| {
+            false
+        }, |mut cb| cb.schedule(0,0,0));
     }
 }

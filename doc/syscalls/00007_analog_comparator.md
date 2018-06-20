@@ -27,7 +27,7 @@ the index of the last AC module.
 
     **Argument 2**: unused
 
-    **Returns**: SUCCESS if it exists, otherwise ENODEVICE
+    **Returns**: `SUCCESS` if it exists, otherwise `ENODEVICE`
 
   * ### Command number: `1`
 
@@ -41,7 +41,8 @@ the index of the last AC module.
 
     **Argument 2**: unused
 
-    **Returns**: SUCCESS if the initialization was succesful
+    **Returns**: `SUCCESS` if the initialization was succesful, `FAIL` if it 
+    failed.
 
 
   * ### Command number: `2`
@@ -82,3 +83,18 @@ the index of the last AC module.
     `True`; it will be `False` if it lies outside of the window.  Specifically, the
     output will be `True` when Vn_x+1 < Vcommon < Vp_x, and `False` if Vcommon <
     Vn_x+1 or Vcommon > Vp_x.
+
+* ### Command number: `4`
+
+    **Description**: Configure interrupts on an analog comparator.
+    After enabling interrupts, the callback set in subscribe will be called
+    when the positive input voltage is higher than the negative input voltage
+    (Vp > Vn).
+
+    **Argument 1**: The index of the Analog Comparator for which the comparison
+    needs to be made, starting at 0.
+
+    **Argument 2**: unused
+
+    **Returns**: `SUCCESS` if enabling interrupts was succesful, `EINVAL` if 
+    an invalid value of ac was set.

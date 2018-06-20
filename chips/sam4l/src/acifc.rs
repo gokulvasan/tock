@@ -1,8 +1,8 @@
-//! Implementation of the ACIFC controller.
+//! Implementation of the SAM4L ACIFC controller.
 //!
-//! See datasheet section "37. Analog Comparator Interface (ACIFC)".
-//!
-//! The Analog Comparator Interface (ACIFC) controls a number of Analog
+//! See datasheet section "37. Analog Comparator Interface (ACIFC)". 
+//! 
+//! The SAM4L Analog Comparator Interface (ACIFC) controls a number of Analog
 //! Comparators (ACs) with identical behavior. Each Analog Comparator compares
 //! two voltages and gives an output depending on this comparison. A specific AC
 //! is referred to as ACx where x is any number from 0 to n and n is the index
@@ -18,10 +18,6 @@
 //!
 //! Author: Danilo Verhaert <verhaert@cs.stanford.edu>
 
-// TODO:
-// - Implement handling of interrupts
-// - Implement other modes, e.g. user and peripheral triggered comparison
-
 use core::cell::Cell;
 use kernel::{ReturnCode, StaticRef};
 use kernel::common::regs::{ReadOnly, ReadWrite, WriteOnly};
@@ -29,7 +25,7 @@ use kernel::hil::analog_comparator;
 use pm;
 
 #[repr(C)]
-pub struct AcifcRegisters {
+struct AcifcRegisters {
     ctrl: ReadWrite<u32, Control::Register>,
     sr: ReadOnly<u32, Status::Register>,
     _reserved0: [ReadOnly<u32>; 2],
@@ -233,9 +229,8 @@ register_bitfields![u32,
 	]
 ];
 
-const BASE_ADDRESS: *mut AcifcRegisters = 0x40040000 as *mut AcifcRegisters;
-const ACIFC_REGS: StaticRef<AcifcRegisters> =
-    unsafe { StaticRef::new(BASE_ADDRESS as *const AcifcRegisters) };
+const ACIFC_BASE: StaticRef<AcifcRegisters> =
+    unsafe { StaticRef::new(0x40040000 as *const AcifcRegisters) };
 
 pub struct Acifc<'a> {
     client: Cell<Option<&'a analog_comparator::Client>>,
@@ -253,30 +248,51 @@ impl<'a> Acifc<'a> {
         pm::enable_clock(pm::Clock::PBA(pm::PBAClock::ACIFC));
     }
 
+	fn disable_clock(&self) {
+        pm::disable_clock(pm::Clock::PBA(pm::PBAClock::ACIFC));
+    }
+
     pub fn set_client(&self, client: &'a analog_comparator::Client) {
         self.client.set(Some(client));
     }
     /// Enable interrupts for the window or startup modes
-    fn enable_interrupts(&self, ac: usize) {
-        let regs = ACIFC_REGS;
+    fn enable_interrupts(&self, ac: usize) -> ReturnCode {
+        let regs = ACIFC_BASE;
 
         if ac == 0 {
-            // Currently using default mode Vin_p > Vin_n. Can be changed by editing the ACConfiguration/CONFx register.
+            // Enable interrupts.
             regs.ier.write(Interrupt::ACINT0::SET);
-
-            // Just to be sure, write the interrupt settings to 00 such that it triggers when Vinp > Vinn
-            regs.conf[0].modify(ACConfiguration::IS::WhenVinpGtVinn);
-        } else if ac == 1 {
+			return ReturnCode::SUCCESS;
+        } 
+		else if ac == 1 {	
+			// Repeat the same for ac == 1
             regs.ier.write(Interrupt::ACINT1::SET);
-
-            // Just to be sure, write the interrupt settings to 00 such that it triggers when Vinp > Vinn
-            regs.conf[1].modify(ACConfiguration::IS::WhenVinpGtVinn);
+			return ReturnCode::SUCCESS;
         }
+		else if ac == 2 {	
+			// Repeat the same for ac == 2
+            regs.ier.write(Interrupt::ACINT2::SET);
+			return ReturnCode::SUCCESS;
+        }
+		else if ac == 3 {	
+			// Repeat the same for ac == 3
+            regs.ier.write(Interrupt::ACINT3::SET);
+			return ReturnCode::SUCCESS;
+        }
+		else {
+    		// Making sure the selected AC is on the board
+			self.disable();
+			debug!("Please choose a comparator (value of ac) that this chip supports");
+			return ReturnCode::EINVAL;
+		}
     }
 
-    /// Handling of interrupts. Currently set up so that an interrupt fires only once when the condition is true (e.g. Vinp > Vinn), and then doesn't fire anymore until the condition is false (e.g. Vinp < Vinn).
+
+	// TODO/HELPWANTED: App crashes when static electricity is anyhow near the board, and I don't understand why.
+    /// Handling of interrupts. Currently set up so that an interrupt fires only once when the condition is true (e.g. Vinp > Vinn),
+	/// and then doesn't fire anymore until the condition is false (e.g. Vinp < Vinn). This way we won't get a barrage of interrupts as soon as Vinp > Vinn: we'll get just one.
     pub fn handle_interrupt(&mut self) {
-        let regs = ACIFC_REGS;
+        let regs = ACIFC_BASE;
 
         // Return if we had a pending interrupt while we already set IMR to 0 (edge case)
         if !regs.imr.is_set(Interrupt::ACINT1) {
@@ -286,31 +302,29 @@ impl<'a> Acifc<'a> {
         // Disable IMR, making sure no more interrupts can occur until we write to IER
         regs.idr.write(Interrupt::ACINT1::SET);
 
-        // If Vinp > Vinn, throw an interrupt to the client, and set the AC so that it will throw an interrupt only when Vinn < Vinp. This way we won't get a barrage of interrupts as soon as Vinp > Vinn: we'll get just one.
-        // if !regs.conf[1].is_set(ACConfiguration::IS) {
+		// If Vinp > Vinn, throw an interrupt to the client and set the AC so that it will throw an interrupt when Vinn < Vinp instead. 
+		if !regs.conf[1].is_set(ACConfiguration::IS) {
         self.client.get().map(|client| {
             client.fired();
         });
-        // 	regs.conf[1].modify(ACConfiguration::IS::WhenVinpLtVinn);
-        // 	// Clear the interrupt request
-        // }
-        // // If Vinp < Vinn, set the AC so that it will throw an interrupt when Vinp > Vinn.
-        // else {
-        // //if regs.conf[1].is_set(ACConfiguration::IS){
-        // 	regs.conf[1].modify(ACConfiguration::IS::WhenVinpGtVinn);
-        // }
+         	regs.conf[1].modify(ACConfiguration::IS::WhenVinpLtVinn);
+        }
+        // If Vinp < Vinn, set the AC so that it will throw an interrupt when Vinp > Vinn instead.
+        else {
+        	regs.conf[1].modify(ACConfiguration::IS::WhenVinpGtVinn);
+        }
 
         // Clear the interrupt request
         regs.icr.write(Interrupt::ACINT1::SET);
         regs.ier.write(Interrupt::ACINT1::SET);
     }
 
-    fn enable(&self) {
-        let regs = ACIFC_REGS;
+    fn enable(&self) -> ReturnCode {
+        let regs = ACIFC_BASE;
         self.enable_clock();
         regs.ctrl.write(Control::EN::SET);
 
-        // Enable continuous measurement mode and always-on mode for AC0-3
+        // Enable continuous measurement mode and always-on mode for all the analog comparators
         regs.conf[0].write(
             ACConfiguration::MODE::ContinuousMeasurementMode + ACConfiguration::ALWAYSON::SET,
         );
@@ -323,10 +337,25 @@ impl<'a> Acifc<'a> {
         regs.conf[3].write(
             ACConfiguration::MODE::ContinuousMeasurementMode + ACConfiguration::ALWAYSON::SET,
         );
+
+		let result = regs.ctrl.is_set(Control::EN);
+		if result == true {
+			return ReturnCode::SUCCESS;
+		}
+		else{
+			debug!("Failed enabling analog comparator, are you sure the clock is enabled?");
+			return ReturnCode::FAIL;
+		}
+    }
+
+	fn disable(&self) {
+        let regs = ACIFC_BASE;
+        self.disable_clock();
+        regs.ctrl.write(Control::EN::CLEAR);
     }
 
     fn comparison(&self, ac: usize) -> bool {
-        let regs = ACIFC_REGS;
+        let regs = ACIFC_BASE;
         let result;
         if ac == 0 {
             result = regs.sr.is_set(Status::ACCS0);
@@ -334,30 +363,39 @@ impl<'a> Acifc<'a> {
             result = regs.sr.is_set(Status::ACCS1);
         } else if ac == 2 {
             result = regs.sr.is_set(Status::ACCS2);
-        } else {
+        } else if ac == 3 {
             result = regs.sr.is_set(Status::ACCS3);
         }
-        result
+		else {
+    		// Making sure the selected AC is on the board
+			self.disable();
+			panic!("PANIC! Please choose a comparator (value of ac) that this chip supports");
+		}
+        return result;
     }
 
     fn window_comparison(&self, window: usize) -> bool {
-        let regs = ACIFC_REGS;
+        let regs = ACIFC_BASE;
         let result;
         if window == 0 {
             regs.confw[0].write(WindowConfiguration::WFEN::SET);
             result = regs.sr.is_set(Status::WFCS0);
-        } else {
+        } else if window == 1{
             regs.confw[1].write(WindowConfiguration::WFEN::SET);
             result = regs.sr.is_set(Status::WFCS1);
         }
+		else {
+    		// Making sure the selected window is on the board
+			self.disable();
+    		panic!("PANIC! Please choose a window (value of window) that this chip supports");
+		}
         return result;
     }
 }
 
 impl<'a> analog_comparator::AnalogComparator for Acifc<'a> {
     fn enable(&self) -> ReturnCode {
-        self.enable();
-        return ReturnCode::SUCCESS;
+        self.enable()
     }
 
     fn comparison(&self, data: usize) -> bool {
@@ -369,8 +407,7 @@ impl<'a> analog_comparator::AnalogComparator for Acifc<'a> {
     }
 
     fn enable_interrupts(&self, data: usize) -> ReturnCode {
-        self.enable_interrupts(data);
-        return ReturnCode::SUCCESS;
+        self.enable_interrupts(data)
     }
 }
 

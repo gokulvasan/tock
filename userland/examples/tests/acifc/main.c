@@ -7,9 +7,6 @@
 
 static void ac_comparison_polling(uint8_t ac) {
   uint count = 0;
-  if (ac > 3) {
-    printf("Please choose either ac 0 or 1 for hail, and 2 or 3 for imix.");
-  }else {
     while (1) {
       count++;
       bool result = ac_comparison(ac);
@@ -19,16 +16,12 @@ static void ac_comparison_polling(uint8_t ac) {
       }else {
         printf("This implies Vinp < Vinn!\n\n");
       }
-      delay_ms(1000);
-    }
+      delay_ms(1000);   
   }
 }
 
 static void ac_window_comparison_polling(uint8_t window) {
   uint count = 0;
-  if (window > 1) {
-    printf("Please choose window 0 for hail and 1 for imix.");
-  }else {
     while (1) {
       count++;
       bool result = ac_window_comparison(window);
@@ -39,7 +32,6 @@ static void ac_window_comparison_polling(uint8_t window) {
         printf("This implies Vcommon < Vacan_x+1 or Vcommon > Vacap_x\n\n");
       }
       delay_ms(1000);
-    }
   }
 }
 
@@ -72,12 +64,12 @@ int main(void) {
   // Set mode according to which implementation you want
   uint8_t mode = 2;
 
-  // Choose your comparator. AC = 0 corresponds to PA06 and PA07, whereas ac = 1
-  // corresponds to PB02 and PB03. On the hail these are the pins DAC and WKP,
-  // and A2 and A3 respectively.
+  // Choose a comparator in case you want to do a comparison of two input values. For the hail, there are two comparators. ac = 0
+  // corresponds to PA06 and PA07, whereas ac = 1 corresponds to PB02 and PB03.
+  // On the hail these are the pins DAC and WKP, and A2 and A3 respectively.
   uint8_t ac = 1;
 
-  // Choose your window. For the hail, there is only one window. For imix, there
+  // Choose a window in case you want to do a comparison of three input values. For the hail, there is only one window. For imix, there
   // are two (0 and 1).
   uint8_t window = 1;
 
