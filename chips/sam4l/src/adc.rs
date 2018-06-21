@@ -15,14 +15,15 @@
 //! - Author: Philip Levis <pal@cs.stanford.edu>, Branden Ghena <brghena@umich.edu>
 //! - Updated: May 1, 2017
 
-use core::{cmp, mem, slice};
 use core::cell::Cell;
+use core::{cmp, mem, slice};
 use dma;
-use kernel::ReturnCode;
+use kernel::common::cells::TakeCell;
 use kernel::common::math;
 use kernel::common::regs::{ReadOnly, ReadWrite, WriteOnly};
-use kernel::common::take_cell::TakeCell;
+use kernel::common::StaticRef;
 use kernel::hil;
+use kernel::ReturnCode;
 use pm::{self, Clock, PBAClock};
 use scif;
 
@@ -102,7 +103,7 @@ impl<C: hil::adc::Client + hil::adc::HighSpeedClient> EverythingClient for C {}
 
 /// ADC driver code for the SAM4L.
 pub struct Adc {
-    registers: *mut AdcRegisters,
+    registers: StaticRef<AdcRegisters>,
 
     // state tracking for the ADC
     enabled: Cell<bool>,
@@ -132,22 +133,22 @@ pub struct Adc {
 #[repr(C)]
 pub struct AdcRegisters {
     // From page 1005 of SAM4L manual
-    pub cr: WriteOnly<u32, Control::Register>,
-    pub cfg: ReadWrite<u32, Configuration::Register>,
-    pub sr: ReadOnly<u32, Status::Register>,
-    pub scr: WriteOnly<u32, Interrupt::Register>,
-    pub _reserved0: u32,
-    pub seqcfg: ReadWrite<u32, SequencerConfig::Register>,
-    pub cdma: WriteOnly<u32>,
-    pub tim: ReadWrite<u32, TimingConfiguration::Register>,
-    pub itimer: ReadWrite<u32, InternalTimer::Register>,
-    pub wcfg: ReadWrite<u32, WindowMonitorConfiguration::Register>,
-    pub wth: ReadWrite<u32, WindowMonitorThresholdConfiguration::Register>,
-    pub lcv: ReadOnly<u32, SequencerLastConvertedValue::Register>,
-    pub ier: WriteOnly<u32, Interrupt::Register>,
-    pub idr: WriteOnly<u32, Interrupt::Register>,
-    pub imr: ReadOnly<u32, Interrupt::Register>,
-    pub calib: ReadWrite<u32>,
+    cr: WriteOnly<u32, Control::Register>,
+    cfg: ReadWrite<u32, Configuration::Register>,
+    sr: ReadOnly<u32, Status::Register>,
+    scr: WriteOnly<u32, Interrupt::Register>,
+    _reserved0: u32,
+    seqcfg: ReadWrite<u32, SequencerConfig::Register>,
+    cdma: WriteOnly<u32>,
+    tim: ReadWrite<u32, TimingConfiguration::Register>,
+    itimer: ReadWrite<u32, InternalTimer::Register>,
+    wcfg: ReadWrite<u32, WindowMonitorConfiguration::Register>,
+    wth: ReadWrite<u32, WindowMonitorThresholdConfiguration::Register>,
+    lcv: ReadOnly<u32, SequencerLastConvertedValue::Register>,
+    ier: WriteOnly<u32, Interrupt::Register>,
+    idr: WriteOnly<u32, Interrupt::Register>,
+    imr: ReadOnly<u32, Interrupt::Register>,
+    calib: ReadWrite<u32>,
 }
 
 register_bitfields![u32,
@@ -336,7 +337,8 @@ register_bitfields![u32,
 ];
 
 // Page 59 of SAM4L data sheet
-pub const BASE_ADDRESS: *mut AdcRegisters = 0x40038000 as *mut AdcRegisters;
+const BASE_ADDRESS: StaticRef<AdcRegisters> =
+    unsafe { StaticRef::new(0x40038000 as *const AdcRegisters) };
 
 /// Statically allocated ADC driver. Used in board configurations to connect to
 /// various capsules.
@@ -348,7 +350,10 @@ impl Adc {
     ///
     /// - `base_address`: pointer to the ADC's memory mapped I/O registers
     /// - `rx_dma_peripheral`: type used for DMA transactions
-    const fn new(base_address: *mut AdcRegisters, rx_dma_peripheral: dma::DMAPeripheral) -> Adc {
+    const fn new(
+        base_address: StaticRef<AdcRegisters>,
+        rx_dma_peripheral: dma::DMAPeripheral,
+    ) -> Adc {
         Adc {
             // pointer to memory mapped I/O registers
             registers: base_address,
@@ -394,7 +399,7 @@ impl Adc {
 
     /// Interrupt handler for the ADC.
     pub fn handle_interrupt(&mut self) {
-        let regs: &AdcRegisters = unsafe { &*self.registers };
+        let regs: &AdcRegisters = &*self.registers;
         let status = regs.sr.is_set(Status::SEOC);
 
         if self.enabled.get() && self.active.get() {
@@ -442,7 +447,7 @@ impl Adc {
 
     /// Clear all status bits using the status clear register.
     fn clear_status(&self) {
-        let regs: &AdcRegisters = unsafe { &*self.registers };
+        let regs: &AdcRegisters = &*self.registers;
         regs.scr.write(
             Interrupt::TTO::SET + Interrupt::SMTRG::SET + Interrupt::WM::SET + Interrupt::LOVR::SET
                 + Interrupt::SEOC::SET,
@@ -461,7 +466,7 @@ impl Adc {
             // already configured to work on this frequency
             ReturnCode::SUCCESS
         } else {
-            let regs: &AdcRegisters = unsafe { &*self.registers };
+            let regs: &AdcRegisters = &*self.registers;
 
             // disabling the ADC before switching clocks is necessary to avoid
             // leaving it in undefined state
@@ -603,7 +608,7 @@ impl hil::adc::Adc for Adc {
     ///
     /// - `channel`: the ADC channel to sample
     fn sample(&self, channel: &Self::Channel) -> ReturnCode {
-        let regs: &AdcRegisters = unsafe { &*self.registers };
+        let regs: &AdcRegisters = &*self.registers;
 
         // always configure to 1KHz to get the slowest clock with single sampling
         let res = self.config_and_enable(1000);
@@ -654,7 +659,7 @@ impl hil::adc::Adc for Adc {
     /// - `channel`: the ADC channel to sample
     /// - `frequency`: the number of samples per second to collect
     fn sample_continuous(&self, channel: &Self::Channel, frequency: u32) -> ReturnCode {
-        let regs: &AdcRegisters = unsafe { &*self.registers };
+        let regs: &AdcRegisters = &*self.registers;
 
         let res = self.config_and_enable(frequency);
 
@@ -748,7 +753,7 @@ impl hil::adc::Adc for Adc {
     /// but can be called to abort any currently running operation. The buffer,
     /// if any, will be returned via the `samples_ready` callback.
     fn stop_sampling(&self) -> ReturnCode {
-        let regs: &AdcRegisters = unsafe { &*self.registers };
+        let regs: &AdcRegisters = &*self.registers;
 
         if !self.enabled.get() {
             ReturnCode::EOFF
@@ -773,7 +778,7 @@ impl hil::adc::Adc for Adc {
             // stop DMA transfer if going. This should safely return a None if
             // the DMA was not being used
             let dma_buffer = self.rx_dma.get().map_or(None, |rx_dma| {
-                let dma_buf = rx_dma.abort_xfer();
+                let dma_buf = rx_dma.abort_transfer();
                 rx_dma.disable();
                 dma_buf
             });
@@ -824,7 +829,7 @@ impl hil::adc::AdcHighSpeed for Adc {
         Option<&'static mut [u16]>,
         Option<&'static mut [u16]>,
     ) {
-        let regs: &AdcRegisters = unsafe { &*self.registers };
+        let regs: &AdcRegisters = &*self.registers;
 
         let res = self.config_and_enable(frequency);
 
@@ -901,7 +906,7 @@ impl hil::adc::AdcHighSpeed for Adc {
                 self.dma_running.set(true);
                 dma.enable();
                 self.rx_length.set(dma_len);
-                dma.do_xfer(self.rx_dma_peripheral, dma_buf, dma_len);
+                dma.do_transfer(self.rx_dma_peripheral, dma_buf, dma_len);
             });
 
             // start timer
@@ -969,7 +974,7 @@ impl dma::DMAClient for Adc {
     /// Handler for DMA transfer completion.
     ///
     /// - `pid`: the DMA peripheral that is complete
-    fn xfer_done(&self, pid: dma::DMAPeripheral) {
+    fn transfer_done(&self, pid: dma::DMAPeripheral) {
         // check if this was an RX transfer
         if pid == self.rx_dma_peripheral {
             // RX transfer was completed
@@ -977,7 +982,7 @@ impl dma::DMAClient for Adc {
             // get buffer filled with samples from DMA
             let dma_buffer = self.rx_dma.get().map_or(None, |rx_dma| {
                 self.dma_running.set(false);
-                let dma_buf = rx_dma.abort_xfer();
+                let dma_buf = rx_dma.abort_transfer();
                 rx_dma.disable();
                 dma_buf
             });
@@ -1014,7 +1019,7 @@ impl dma::DMAClient for Adc {
                         self.dma_running.set(true);
                         dma.enable();
                         self.rx_length.set(dma_len);
-                        dma.do_xfer(self.rx_dma_peripheral, dma_buf, dma_len);
+                        dma.do_transfer(self.rx_dma_peripheral, dma_buf, dma_len);
                     });
                 } else {
                     // if length was zero, just keep the buffer in the takecell

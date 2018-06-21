@@ -34,10 +34,10 @@
 //! ```
 
 use callback::{AppId, Callback};
-use core::{slice, str};
 use core::cmp::min;
 use core::fmt::{write, Arguments, Result, Write};
 use core::ptr::{read_volatile, write_volatile};
+use core::{slice, str};
 use driver::Driver;
 use hil;
 use mem::AppSlice;
@@ -110,7 +110,7 @@ pub unsafe fn panic_banner<W: Write>(
 pub unsafe fn panic_process_info<W: Write>(writer: &mut W) {
     // Print fault status once
     let procs = &mut process::PROCS;
-    if procs.len() > 0 {
+    if !procs.is_empty() {
         procs[0].as_mut().map(|process| {
             process.fault_str(writer);
         });
@@ -118,7 +118,6 @@ pub unsafe fn panic_process_info<W: Write>(writer: &mut W) {
 
     // print data about each process
     let _ = writer.write_fmt(format_args!("\r\n---| App Status |---\r\n"));
-    let procs = &mut process::PROCS;
     for idx in 0..procs.len() {
         procs[idx].as_mut().map(|process| {
             process.statistics_str(writer);
@@ -173,10 +172,12 @@ pub unsafe fn assign_gpios(
 /// In-kernel gpio debugging, accepts any GPIO HIL method
 #[macro_export]
 macro_rules! debug_gpio {
-    ($i:tt, $method:ident) => ({
+    ($i:tt, $method:ident) => {{
         #[allow(unused_unsafe)]
-        unsafe { $crate::debug::DEBUG_GPIOS.$i.map(|g| g.$method()); }
-    });
+        unsafe {
+            $crate::debug::DEBUG_GPIOS.$i.map(|g| g.$method());
+        }
+    }};
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -199,21 +200,21 @@ static mut DEBUG_WRITER: DebugWriter = DebugWriter {
     driver: None,
     grant: None,
     output_buffer: [0; BUF_SIZE],
-    output_head: 0,       // ........ first valid index in output_buffer
-    output_tail: 0,       // ........ one past last valid index (wraps to 0)
-    output_active_len: 0, //... how big is the current transaction?
-    count: 0,             // .............. how many debug! calls
+    output_head: 0,       // first valid index in output_buffer
+    output_tail: 0,       // one past last valid index (wraps to 0)
+    output_active_len: 0, // how big is the current transaction?
+    count: 0,             // how many debug! calls
 };
 
 pub unsafe fn assign_console_driver<T>(driver: Option<&'static Driver>, grant: &mut T) {
-    let ptr: *mut u8 = ::core::mem::transmute(grant);
+    let ptr: *mut u8 = grant as *mut T as *mut u8;
     DEBUG_WRITER.driver = driver;
     DEBUG_WRITER.grant = Some(ptr);
 }
 
 pub unsafe fn get_grant<T>() -> *mut T {
     match DEBUG_WRITER.grant {
-        Some(grant) => ::core::mem::transmute(grant),
+        Some(grant) => grant as *mut T,
         None => panic!("Request for unallocated kernel grant"),
     }
 }
@@ -244,13 +245,6 @@ impl DebugWriter {
 
             match self.driver {
                 Some(driver) => {
-                    /*
-                    let s = match str::from_utf8(&DEBUG_WRITER.output_buffer) {
-                        Ok(v) => v,
-                        Err(e) => panic!("Not uf8 {}", e),
-                    };
-                    panic!("s: {}", s);
-                    */
                     let head = read_volatile(&self.output_head);
                     let tail = read_volatile(&self.output_tail);
                     let len = self.output_buffer.len();
@@ -393,10 +387,7 @@ impl Write for DebugWriter {
             if head == len {
                 head = 0;
             }
-
-            let remaining_bytes = &bytes[written..];
-
-            remaining_bytes
+            &bytes[written..]
         } else {
             s.as_bytes()
         };

@@ -1,3 +1,5 @@
+//! Interface for chips and boards.
+
 use driver::Driver;
 
 pub mod mpu;
@@ -21,7 +23,10 @@ pub trait Chip {
     fn has_pending_interrupts(&self) -> bool;
     fn mpu(&self) -> &Self::MPU;
     fn systick(&self) -> &Self::SysTick;
-    fn prepare_for_sleep(&self) {}
+    fn sleep(&self);
+    unsafe fn atomic<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce() -> R;
 }
 
 /// Generic operations that clock-like things are expected to support.

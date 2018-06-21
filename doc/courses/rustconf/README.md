@@ -20,7 +20,7 @@ attending the morning Intermediate Rust training is highly encouraged.
 ## Pre-requisites
 
 We will go over setting up a development environment during the training.
-However, because the WiFi might not be provide fastest Internet connection in
+However, because the WiFi might not provide the fastest Internet connection in
 the world, it would be useful to set up the following dependencies ahead of
 time:
 
@@ -33,16 +33,11 @@ time:
 
 5. A local clone of the Tock repository
 
-        $ git clone https://github.com/helena-project/tock.git
+        $ git clone https://github.com/tock/tock.git
 
 6. [rustup](http://rustup.rs/).
 
         $ curl https://sh.rustup.rs -sSf | sh
-        $ rustup install nightly-2017-06-20
-
-7. [Xargo](https://github.com/japaric/xargo)
-
-        $ cargo install xargo
 
 8. [arm-none-eabi toolchain](https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads) (version >= 5.2)
 

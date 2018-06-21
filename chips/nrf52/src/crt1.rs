@@ -1,4 +1,4 @@
-use cortexm4::{generic_isr, nvic, svc_handler, systick_handler};
+use cortexm4::{generic_isr, ipsr_isr_number_to_str, nvic, svc_handler, systick_handler};
 
 /*
  * Adapted from crt1.c which was relicensed by the original author from
@@ -40,7 +40,7 @@ unsafe extern "C" fn unhandled_interrupt() {
 }
 
 unsafe extern "C" fn hard_fault_handler() {
-    use {core, kernel, core::intrinsics::offset};
+    use {core, core::intrinsics::offset};
 
     let faulting_stack: *mut u32;
     let kernel_stack: bool;
@@ -166,7 +166,7 @@ unsafe extern "C" fn hard_fault_handler() {
             ici_it,
             thumb_bit,
             exception_number,
-            kernel::process::ipsr_isr_number_to_str(exception_number),
+            ipsr_isr_number_to_str(exception_number),
             faulting_stack as u32,
             (_estack as *const ()) as u32,
             (&_ezero as *const u32) as u32,
@@ -228,13 +228,12 @@ unsafe extern "C" fn hard_fault_handler() {
     }
 }
 
-#[link_section=".vectors"]
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[link_section = ".vectors"]
 #[no_mangle] // ensures that the symbol is kept until the final binary
 /// ARM Cortex M Vector Table
-pub static BASE_VECTORS: [unsafe extern fn(); 16] = [
+pub static BASE_VECTORS: [unsafe extern "C" fn(); 16] = [
     // Stack Pointer
-    _estack, 
+    _estack,
     // Reset Handler
     reset_handler,
     // NMI
@@ -248,9 +247,9 @@ pub static BASE_VECTORS: [unsafe extern fn(); 16] = [
     // Usage Fault
     unhandled_interrupt,
     // Reserved
-    unhandled_interrupt, 
+    unhandled_interrupt,
     // Reserved
-    unhandled_interrupt, 
+    unhandled_interrupt,
     // Reserved
     unhandled_interrupt,
     // Reserved
@@ -264,7 +263,7 @@ pub static BASE_VECTORS: [unsafe extern fn(); 16] = [
     // PendSv
     unhandled_interrupt,
     // SysTick
-    systick_handler
+    systick_handler,
 ];
 
 #[link_section = ".vectors"]

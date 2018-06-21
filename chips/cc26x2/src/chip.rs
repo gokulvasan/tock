@@ -56,4 +56,17 @@ impl kernel::Chip for Cc26X2 {
     fn has_pending_interrupts(&self) -> bool {
         unsafe { nvic::has_pending() }
     }
+
+    fn sleep(&self) {
+        unsafe {
+            cortexm4::support::wfi();
+        }
+    }
+
+    unsafe fn atomic<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce() -> R,
+    {
+        cortexm4::support::atomic(f)
+    }
 }

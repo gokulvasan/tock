@@ -113,11 +113,14 @@ ReadOnly<T: IntLike, R: RegisterLongName = ()>
 .is_set(field: Field<T, R>) -> bool            // Check if one or more bits in a field are set
 .matches_any(value: FieldValue<T, R>) -> bool  // Check if any specified parts of a field match
 .matches_all(value: FieldValue<T, R>) -> bool  // Check if all specified parts of a field match
+.extract() -> LocalRegisterCopy<T, R>          // Make local copy of register
 
 WriteOnly<T: IntLike, R: RegisterLongName = ()>
 .set(value: T)                                 // Set the raw register value
 .write(value: FieldValue<T, R>)                // Write the value of one or more fields,
                                                //  overwriting other fields to zero
+.extract() -> LocalRegisterCopy<T, R>          // Make local copy of register
+
 
 ReadWrite<T: IntLike, R: RegisterLongName = ()>
 .get() -> T                                    // Get the raw register value
@@ -127,9 +130,14 @@ ReadWrite<T: IntLike, R: RegisterLongName = ()>
                                                //  overwriting other fields to zero
 .modify(value: FieldValue<T, R>)               // Write the value of one or more fields,
                                                //  leaving other fields unchanged
+.modify_no_read(                               // Write the value of one or more fields,
+      original: LocalRegisterCopy<T, R>,       //  leaving other fields unchanged, but pass in
+      value: FieldValue<T, R>)                 //  the original value, instead of doing a register read
 .is_set(field: Field<T, R>) -> bool            // Check if one or more bits in a field are set
 .matches_any(value: FieldValue<T, R>) -> bool  // Check if any specified parts of a field match
 .matches_all(value: FieldValue<T, R>) -> bool  // Check if all specified parts of a field match
+.extract() -> LocalRegisterCopy<T, R>          // Make local copy of register
+
 ```
 
 The first type parameter (the `IntLike` type) is `u8`, `u16`, or `u32`.
@@ -184,6 +192,12 @@ regs.cr.modify(Control::EN::CLEAR + Control::RANGE::Low); // INT unchanged
 // Any number of non-overlapping fields can be combined:
 regs.cr.modify(Control::EN::CLEAR + Control::RANGE::High + CR::INT::SET);
 
+// In some cases (such as a protected register) .modify() may not be appropriate.
+// To enable updating a register without coupling the read and write, use
+// modify_no_read():
+let original = regs.cr.extract();
+regs.cr.modify_no_read(original, Control::EN::CLEAR);
+
 
 // -----------------------------------------------------------------------------
 // WRITE
@@ -216,6 +230,20 @@ while !regs.s.matches_all(Status::TXCOMPLETE::SET +
 
 // Or for checking whether any interrupts are enabled:
 let any_ints = regs.s.matches_any(Status::TXINTERRUPT + Status::RXINTERRUPT);
+
+// -----------------------------------------------------------------------------
+// LOCAL COPY
+// -----------------------------------------------------------------------------
+
+// More complex code may want to read a register value once and then keep it in
+// a local variable before using the normal register interface functions on the
+// local copy.
+
+// Create a copy of the register value as a local variable.
+let local = regs.cr.extract();
+
+// Now all the functions for a ReadOnly register work.
+let txcomplete: bool = local.is_set(Status::TXCOMPLETE);
 ```
 
 Note that `modify` performs exactly one volatile load and one volatile store,
