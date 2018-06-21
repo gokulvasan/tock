@@ -120,8 +120,8 @@ impl Platform for Hail {
 
 /// Helper function called during bring-up that configures multiplexed I/O.
 unsafe fn set_pin_primary_functions() {
-    use sam4l::gpio::{PA, PB};
     use sam4l::gpio::PeripheralFunction::{A, B, E};
+    use sam4l::gpio::{PA, PB};
 
     PA[04].configure(Some(A)); // A0 - ADC0
     PA[05].configure(Some(A)); // A1 - ADC1

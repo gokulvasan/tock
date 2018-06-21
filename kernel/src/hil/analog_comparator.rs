@@ -35,12 +35,12 @@ pub trait AnalogComparator {
     /// if Vcommon < Vn_x+1 or Vcommon > Vp_x.
     fn window_comparison(&self, usize) -> bool;
 
-    /// Enable interrupts. This will make the AC corresponding to the variable 
+    /// Enable interrupts. This will make the AC corresponding to the variable
     /// passed (e.g. AC1) send an interrupt when Vp > Vn.
     fn enable_interrupts(&self, usize) -> ReturnCode;
 }
 
 pub trait Client {
-    /// Called when an interrupt occurs. 
+    /// Called when an interrupt occurs.
     fn fired(&self);
 }

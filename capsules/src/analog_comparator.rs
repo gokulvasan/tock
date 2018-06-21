@@ -34,8 +34,8 @@
 pub const DRIVER_NUM: usize = 0x00007;
 
 use core::cell::Cell;
-use kernel::{AppId, Callback, Driver, ReturnCode};
 use kernel::hil;
+use kernel::{AppId, Callback, Driver, ReturnCode};
 
 pub struct AnalogComparator<'a, A: hil::analog_comparator::AnalogComparator + 'a> {
     ac: &'a A,
@@ -111,8 +111,8 @@ impl<'a, A: hil::analog_comparator::AnalogComparator> hil::analog_comparator::Cl
 {
     fn fired(&self) {
         // Callback to userland
-        self.callback.get().map_or_else(|| {
-            false
-        }, |mut cb| cb.schedule(0,0,0));
+        self.callback
+            .get()
+            .map_or_else(|| false, |mut cb| cb.schedule(0, 0, 0));
     }
 }
