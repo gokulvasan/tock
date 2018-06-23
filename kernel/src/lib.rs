@@ -9,7 +9,7 @@
 #![feature(asm, core_intrinsics, unique, nonzero, ptr_internals)]
 #![feature(const_fn, const_cell_new, const_unsafe_cell_new, lang_items)]
 #![feature(nonnull_cast)]
-#![feature(use_extern_macros)]
+#![feature(use_extern_macros, in_band_lifetimes)]
 #![no_std]
 
 extern crate tock_regs;
