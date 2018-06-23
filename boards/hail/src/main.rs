@@ -8,12 +8,11 @@
 #![feature(asm, const_fn, lang_items, panic_implementation)]
 #![deny(missing_docs)]
 
-extern crate capsules;
+use capsules;
 #[allow(unused_imports)]
-#[macro_use(debug, debug_gpio, static_init)]
-extern crate kernel;
-extern crate cortexm4;
-extern crate sam4l;
+use kernel::{self, debug, static_init};
+use cortexm4;
+use sam4l;
 
 use capsules::virtual_alarm::{MuxAlarm, VirtualMuxAlarm};
 use capsules::virtual_i2c::{I2CDevice, MuxI2C};
