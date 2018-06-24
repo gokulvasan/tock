@@ -3,7 +3,7 @@
 use crate::driver::Driver;
 
 pub mod mpu;
-pub mod systick;
+crate mod systick;
 
 /// Interface for individual boards.
 pub trait Platform {

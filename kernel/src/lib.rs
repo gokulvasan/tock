@@ -10,6 +10,8 @@
 #![feature(const_fn, const_cell_new, const_unsafe_cell_new, lang_items)]
 #![feature(nonnull_cast)]
 #![feature(use_extern_macros, in_band_lifetimes, crate_in_paths)]
+#![feature(crate_visibility_modifier)]
+#![warn(unreachable_pub)]
 #![no_std]
 
 extern crate tock_regs;

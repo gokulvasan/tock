@@ -45,10 +45,10 @@ static mut SCB_REGISTERS: [u32; 5] = [0; 5];
 
 #[allow(improper_ctypes)]
 extern "C" {
-    pub fn switch_to_user(user_stack: *const u8, process_regs: &mut [usize; 8]) -> *mut u8;
+    crate fn switch_to_user(user_stack: *const u8, process_regs: &mut [usize; 8]) -> *mut u8;
 }
 
-pub static mut PROCS: &'static mut [Option<&mut Process<'static>>] = &mut [];
+crate static mut PROCS: &'static mut [Option<&mut Process<'static>>] = &mut [];
 
 /// Helper function to load processes from flash into an array of active
 /// processes. This is the default template for loading processes, but a board
@@ -95,7 +95,7 @@ pub unsafe fn load_processes(
     }
 }
 
-pub fn schedule(callback: FunctionCall, appid: AppId) -> bool {
+crate fn schedule(callback: FunctionCall, appid: AppId) -> bool {
     let procs = unsafe { &mut PROCS };
     let idx = appid.idx();
     if idx >= procs.len() {
@@ -134,7 +134,7 @@ pub fn schedule(callback: FunctionCall, appid: AppId) -> bool {
 /// app owns and can write to. This includes the app's code and data and any
 /// padding at the end of the app. It does not include the TBF header, or any
 /// space that the kernel is using for any potential bookkeeping.
-pub fn get_editable_flash_range(app_idx: usize) -> (usize, usize) {
+crate fn get_editable_flash_range(app_idx: usize) -> (usize, usize) {
     let procs = unsafe { &mut PROCS };
     if app_idx >= procs.len() {
         return (0, 0);
@@ -732,7 +732,7 @@ pub struct Process<'a> {
 // Stores the current number of callbacks enqueued + processes in Running state
 static mut HAVE_WORK: VolatileCell<usize> = VolatileCell::new(0);
 
-pub fn processes_blocked() -> bool {
+crate fn processes_blocked() -> bool {
     unsafe { HAVE_WORK.get() == 0 }
 }
 
