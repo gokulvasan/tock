@@ -5,7 +5,7 @@
 
 #![no_std]
 #![no_main]
-#![feature(asm, const_fn, lang_items)]
+#![feature(asm, const_fn, lang_items, underscore_imports)]
 #![deny(missing_docs)]
 
 extern crate capsules;
@@ -20,7 +20,7 @@ use capsules::virtual_i2c::{I2CDevice, MuxI2C};
 use capsules::virtual_spi::{MuxSpiMaster, VirtualSpiMasterDevice};
 use kernel::hil;
 use kernel::hil::spi::SpiMaster;
-use kernel::hil::Controller;
+use kernel::hil::Controller as _;
 use kernel::Platform;
 
 /// Support routines for debugging I/O.
