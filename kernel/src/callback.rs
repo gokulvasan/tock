@@ -1,7 +1,7 @@
 //! Data structure for storing a callback to userspace or kernelspace.
 
 use core::ptr::NonNull;
-use process;
+use crate::process;
 
 /// Userspace app identifier.
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]

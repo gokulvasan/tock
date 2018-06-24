@@ -33,16 +33,16 @@
 //! TOCK_DEBUG(0): /tock/capsules/src/sensys.rs:24: got here
 //! ```
 
-use callback::{AppId, Callback};
 use core::cmp::min;
 use core::fmt::{write, Arguments, Result, Write};
 use core::ptr::{read_volatile, write_volatile};
 use core::{slice, str};
-use driver::Driver;
-use hil;
-use mem::AppSlice;
-use process;
-use returncode::ReturnCode;
+use crate::callback::{AppId, Callback};
+use crate::driver::Driver;
+use crate::hil;
+use crate::mem::AppSlice;
+use crate::process;
+use crate::returncode::ReturnCode;
 
 ///////////////////////////////////////////////////////////////////
 // panic! support routines

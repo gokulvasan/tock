@@ -3,18 +3,18 @@
 use core::ptr;
 use core::ptr::NonNull;
 
-use callback;
-use callback::{AppId, Callback};
-use ipc;
-use mem::AppSlice;
-use memop;
-use platform::mpu::MPU;
-use platform::systick::SysTick;
-use platform::{Chip, Platform};
-use process;
-use process::{Process, Task};
-use returncode::ReturnCode;
-use syscall::Syscall;
+use crate::callback;
+use crate::callback::{AppId, Callback};
+use crate::ipc;
+use crate::mem::AppSlice;
+use crate::memop;
+use crate::platform::mpu::MPU;
+use crate::platform::systick::SysTick;
+use crate::platform::{Chip, Platform};
+use crate::process;
+use crate::process::{Process, Task};
+use crate::returncode::ReturnCode;
+use crate::syscall::Syscall;
 
 /// The time a process is permitted to run before being pre-empted
 const KERNEL_TICK_DURATION_US: u32 = 10000;
@@ -60,7 +60,7 @@ unsafe fn do_process<P: Platform, C: Chip>(
     chip: &mut C,
     process: &mut Process,
     appid: AppId,
-    ipc: Option<&::ipc::IPC>,
+    ipc: Option<&ipc::IPC>,
 ) {
     let systick = chip.systick();
     systick.reset();

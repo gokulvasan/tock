@@ -1,6 +1,6 @@
 //! Interface for chips and boards.
 
-use driver::Driver;
+use crate::driver::Driver;
 
 pub mod mpu;
 pub mod systick;

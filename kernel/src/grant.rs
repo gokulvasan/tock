@@ -1,12 +1,12 @@
 //! Data structure to store a list of userspace applications.
 
-use callback::AppId;
 use core::marker::PhantomData;
 use core::mem::size_of;
 use core::ops::{Deref, DerefMut};
 use core::ptr::{read_volatile, write_volatile, Unique};
-use debug;
-use process::{self, Error};
+use crate::callback::AppId;
+use crate::debug;
+use crate::process::{self, Error};
 
 pub static mut CONTAINER_COUNTER: usize = 0;
 

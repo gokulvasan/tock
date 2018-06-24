@@ -1,19 +1,18 @@
 //! Support for creating and running userspace applications.
 
-use callback::AppId;
-use common::cells::VolatileCell;
-use common::{Queue, RingBuffer};
-
 use core::cell::Cell;
 use core::fmt::Write;
 use core::ptr::{read_volatile, write, write_volatile};
 use core::{mem, ptr, slice, str};
-use grant;
 
-use common::math;
-use platform::mpu;
-use returncode::ReturnCode;
-use syscall::Syscall;
+use crate::callback::AppId;
+use crate::common::cells::VolatileCell;
+use crate::common::math;
+use crate::common::{Queue, RingBuffer};
+use crate::grant;
+use crate::platform::mpu;
+use crate::returncode::ReturnCode;
+use crate::syscall::Syscall;
 
 /// Takes a value and rounds it up to be aligned % 8
 macro_rules! align8 {

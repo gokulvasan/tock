@@ -34,9 +34,9 @@ pub use self::static_ref::StaticRef;
 ///
 ///     use kernel::common::cells::TakeCell;
 pub mod cells {
-    pub use common::map_cell::MapCell;
-    pub use common::num_cell::NumCell;
-    pub use common::optional_cell::OptionalCell;
-    pub use common::take_cell::TakeCell;
-    pub use common::volatile_cell::VolatileCell;
+    pub use crate::common::map_cell::MapCell;
+    pub use crate::common::num_cell::NumCell;
+    pub use crate::common::optional_cell::OptionalCell;
+    pub use crate::common::take_cell::TakeCell;
+    pub use crate::common::volatile_cell::VolatileCell;
 }

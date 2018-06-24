@@ -5,8 +5,8 @@ use core::ops::{Deref, DerefMut};
 use core::ptr::Unique;
 use core::slice;
 
-use callback::AppId;
-use process;
+use crate::callback::AppId;
+use crate::process;
 
 #[derive(Debug)]
 pub struct Private;

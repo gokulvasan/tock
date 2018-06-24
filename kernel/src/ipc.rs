@@ -6,12 +6,12 @@
 /// Syscall number
 pub const DRIVER_NUM: usize = 0x00010000;
 
-use callback::{AppId, Callback};
-use driver::Driver;
-use grant::Grant;
-use mem::{AppSlice, Shared};
-use process;
-use returncode::ReturnCode;
+use crate::callback::{AppId, Callback};
+use crate::driver::Driver;
+use crate::grant::Grant;
+use crate::mem::{AppSlice, Shared};
+use crate::process;
+use crate::returncode::ReturnCode;
 
 struct IPCData {
     shared_memory: [Option<AppSlice<Shared, u8>>; 8],

@@ -81,7 +81,7 @@
 //! }
 //! ```
 
-use returncode::ReturnCode;
+use crate::returncode::ReturnCode;
 
 /// Flash errors returned in the callbacks.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
