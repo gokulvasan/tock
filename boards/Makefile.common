@@ -8,8 +8,15 @@ MAKEFILE_COMMON_PATH := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 TOOLCHAIN ?= arm-none-eabi
 
 CARGO ?= cargo
-# This will hopefully move into Cargo.toml (or Cargo.toml.local) eventually
-RUSTFLAGS_FOR_CARGO_LINKING := "-C link-arg=-Tlayout.ld -C linker=lld -Z linker-flavor=ld.lld -C relocation-model=dynamic-no-pic"
+# This will hopefully move into Cargo.toml (or Cargo.toml.local) eventually.
+# lld uses the page size to align program sections. It defaults to 4096 and this
+# puts a gap between before the .relocate section. `zmax-page-size=512` tells
+# lld the actual page size so it doesn't have to be conservative.
+RUSTFLAGS_FOR_CARGO_LINKING := "-C link-arg=-Tlayout.ld -C linker=lld \
+-Z linker-flavor=ld.lld -C relocation-model=dynamic-no-pic \
+-C link-arg=-zmax-page-size=512"
+
+# RUSTFLAGS_FOR_CARGO_LINKING += -C link-arg=-zmax-page-size=512
 
 SIZE      ?= $(TOOLCHAIN)-size
 OBJCOPY   ?= $(TOOLCHAIN)-objcopy
@@ -130,7 +137,7 @@ target/$(TARGET)/debug/$(PLATFORM).hex: target/$(TARGET)/debug/$(PLATFORM).elf
 	$(Q)$(OBJCOPY) -Oihex $^ $@
 
 target/$(TARGET)/release/$(PLATFORM).bin: target/$(TARGET)/release/$(PLATFORM).elf
-	$(Q)$(OBJCOPY) -Obinary $^ $@
+	$(Q)$(OBJCOPY) -O=binary $^ $@
 
 target/$(TARGET)/debug/$(PLATFORM).bin: target/$(TARGET)/debug/$(PLATFORM).elf
 	$(Q)$(OBJCOPY) -Obinary $^ $@
