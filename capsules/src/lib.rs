@@ -1,4 +1,5 @@
 #![feature(const_fn, const_cell_new)]
+#![feature(infer_outlives_requirements, in_band_lifetimes)]
 #![forbid(unsafe_code)]
 #![no_std]
 
@@ -18,6 +19,7 @@ pub mod ambient_light;
 pub mod app_flash_driver;
 pub mod ble_advertising_driver;
 pub mod button;
+pub mod buzzer_driver;
 pub mod console;
 pub mod crc;
 pub mod dac;
