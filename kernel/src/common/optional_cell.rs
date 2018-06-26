@@ -24,6 +24,16 @@ impl<T: Copy> OptionalCell<T> {
         }
     }
 
+    /// Check if the cell is None.
+    pub fn is_none(&self) -> bool {
+        self.value.get().is_none()
+    }
+
+    /// Check if the cell contains something.
+    pub fn is_some(&self) -> bool {
+        self.value.get().is_some()
+    }
+
     /// Update the stored value.
     pub fn set(&self, val: T) {
         self.value.set(Some(val));
@@ -32,6 +42,11 @@ impl<T: Copy> OptionalCell<T> {
     /// Reset the stored value to `None`.
     pub fn clear(&self) {
         self.value.set(None);
+    }
+
+    /// Return the contained value and replace it with None.
+    pub fn take(&self) -> Option<T> {
+        self.value.take()
     }
 
     /// Call a closure on the value if the value exists.
