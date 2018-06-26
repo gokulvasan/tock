@@ -19,3 +19,11 @@ pub trait Pwm {
     /// Stop a PWM pin output.
     fn stop(&self, pin: &Self::Pin) -> ReturnCode;
 }
+
+/// Higher-level PWM interface that restricts the user to a specific PWM pin.
+/// This is particularly useful for passing to capsules that need to control
+/// only a specific pin.
+pub trait PwmPin {
+    fn start(&self, frequency_hz: usize, duty_cycle: usize) -> ReturnCode;
+    fn stop(&self) -> ReturnCode;
+}
