@@ -24,7 +24,7 @@ const MIN_QUANTA_THRESHOLD_US: u32 = 500;
 
 /// Main object for the kernel. Each board will need to create one.
 // pub struct Kernel<P: Platform, C: Chip> {
-pub struct Kernel<'a> {
+pub struct Kernel {
     /// How many "to-do" items exist at any given time. These include
     /// outstanding callbacks and processes in the Running state.
     work: NumCell<usize>,
@@ -36,7 +36,7 @@ pub struct Kernel<'a> {
 }
 
 // impl<P: Platform, C: Chip> Kernel {
-impl Kernel<'a> {
+impl Kernel {
     pub fn new(processes: &'static mut [Option<&mut Process<'static>>], ipc: Option<&'static ipc::IPC>) -> Kernel {
         Kernel {
             work: NumCell::new(0),
@@ -116,7 +116,7 @@ impl Kernel<'a> {
 
                 for (i, p) in self.processes.iter_mut().enumerate() {
                     p.as_mut().map(|process| {
-                        self.do_process(platform, chip, process, callback::AppId::new(self, i), ipc);
+                        // self.do_process(platform, chip, process, callback::AppId::new(self, i), ipc);
                     });
                     if chip.has_pending_interrupts() {
                         break;
@@ -224,13 +224,13 @@ impl Kernel<'a> {
                     let appdata = process.r3();
 
                     let callback_ptr = NonNull::new(callback_ptr_raw);
-                    let callback = callback_ptr.map(|ptr| Callback::new(self, appid, appdata, ptr.cast()));
+                    // let callback = callback_ptr.map(|ptr| Callback::new(self, appid, appdata, ptr.cast()));
 
-                    let res = platform.with_driver(driver_num, |driver| match driver {
-                        Some(d) => d.subscribe(subdriver_num, callback, appid),
-                        None => ReturnCode::ENODEVICE,
-                    });
-                    process.set_return_code(res);
+                    // let res = platform.with_driver(driver_num, |driver| match driver {
+                    //     Some(d) => d.subscribe(subdriver_num, callback, appid),
+                    //     None => ReturnCode::ENODEVICE,
+                    // });
+                    // process.set_return_code(res);
                 }
                 Some(Syscall::COMMAND) => {
                     let res = platform.with_driver(process.r0(), |driver| match driver {
@@ -247,8 +247,9 @@ impl Kernel<'a> {
                                 if start_addr != ptr::null_mut() {
                                     let size = process.r3();
                                     if process.in_exposed_bounds(start_addr, size) {
-                                        let slice = AppSlice::new(self, start_addr as *mut u8, size, appid);
-                                        d.allow(appid, process.r1(), Some(slice))
+                                        // let slice = AppSlice::new(self, start_addr as *mut u8, size, appid);
+                                        // d.allow(appid, process.r1(), Some(slice))
+                ReturnCode::EINVAL
                                     } else {
                                         ReturnCode::EINVAL /* memory not allocated to process */
                                     }
