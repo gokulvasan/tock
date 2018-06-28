@@ -166,25 +166,28 @@ impl UART {
 }
 
 impl hil::uart::UART for UART {
-    fn set_client(&self, client: &'static hil::uart::Client) {
+    fn set_client(&self, client: &'static hil::uart::Client) -> ReturnCode {
         self.client.set(Some(client));
+        ReturnCode::SUCCESS
     }
 
-    fn init(&self, params: hil::uart::UARTParams) {
+    fn init(&self, params: hil::uart::UARTParams) -> ReturnCode {
         self.enable();
-        self.set_baud_rate(params.baud_rate)
+        self.set_baud_rate(params.baud_rate);
+        ReturnCode::SUCCESS
     }
 
-    fn transmit(&self, tx_data: &'static mut [u8], tx_len: usize) {
+    fn transmit(&self, tx_data: &'static mut [u8], tx_len: usize) -> ReturnCode {
         self.buffer.replace(tx_data);
         self.offset.set(0);
         self.remaining.set(tx_len);
         self.enable_tx();
         self.enable_tx_interrupts();
         self.send_next();
+        ReturnCode::SUCCESS
     }
 
-    fn receive(&self, _rx_buffer: &'static mut [u8], _rx_len: usize) {
+    fn receive(&self, _rx_buffer: &'static mut [u8], _rx_len: usize) -> ReturnCode {
         unimplemented!()
     }
 

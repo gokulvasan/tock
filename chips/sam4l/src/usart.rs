@@ -798,12 +798,13 @@ impl dma::DMAClient for USART {
 
 /// Implementation of kernel::hil::UART
 impl hil::uart::UART for USART {
-    fn set_client(&self, client: &'static hil::uart::Client) {
+    fn set_client(&self, client: &'static hil::uart::Client) -> ReturnCode {
         let c = UsartClient::Uart(client);
         self.client.set(Some(c));
+        ReturnCode::SUCCESS
     }
 
-    fn init(&self, params: hil::uart::UARTParams) {
+    fn init(&self, params: hil::uart::UARTParams) -> ReturnCode {
         self.usart_mode.set(UsartMode::Uart);
 
         let usart = &USARTRegManager::new(&self);
@@ -840,9 +841,11 @@ impl hil::uart::UART for USART {
 
         // Set baud rate
         self.set_baud_rate(usart, params.baud_rate);
+
+        ReturnCode::SUCCESS
     }
 
-    fn transmit(&self, tx_data: &'static mut [u8], tx_len: usize) {
+    fn transmit(&self, tx_data: &'static mut [u8], tx_len: usize) -> ReturnCode {
         let usart = &USARTRegManager::new(&self);
 
         // quit current transmission if any
@@ -858,9 +861,11 @@ impl hil::uart::UART for USART {
             dma.do_transfer(self.tx_dma_peripheral, tx_data, tx_len);
             self.tx_len.set(tx_len);
         });
+
+        ReturnCode::SUCCESS
     }
 
-    fn receive(&self, rx_buffer: &'static mut [u8], rx_len: usize) {
+    fn receive(&self, rx_buffer: &'static mut [u8], rx_len: usize) -> ReturnCode {
         let usart = &USARTRegManager::new(&self);
 
         // quit current reception if any
@@ -883,6 +888,8 @@ impl hil::uart::UART for USART {
             dma.do_transfer(self.rx_dma_peripheral, rx_buffer, length);
             self.rx_len.set(rx_len);
         });
+
+        ReturnCode::SUCCESS
     }
 
     fn abort_receive(&self) -> ReturnCode {

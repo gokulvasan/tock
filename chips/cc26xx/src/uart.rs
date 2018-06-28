@@ -195,19 +195,21 @@ impl UART {
 }
 
 impl kernel::hil::uart::UART for UART {
-    fn set_client(&self, client: &'static kernel::hil::uart::Client) {
+    fn set_client(&self, client: &'static kernel::hil::uart::Client) -> ReturnCode {
         self.client.set(Some(client));
+        ReturnCode::SUCCESS
     }
 
-    fn init(&self, params: kernel::hil::uart::UARTParams) {
+    fn init(&self, params: kernel::hil::uart::UARTParams) -> ReturnCode {
         self.power_and_clock();
         self.disable_interrupts();
         self.configure(params);
+        ReturnCode::SUCCESS
     }
 
-    fn transmit(&self, tx_data: &'static mut [u8], tx_len: usize) {
+    fn transmit(&self, tx_data: &'static mut [u8], tx_len: usize) -> ReturnCode {
         if tx_len == 0 {
-            return;
+            return ReturnCode::ESIZE;
         }
 
         for i in 0..tx_len {
@@ -217,10 +219,14 @@ impl kernel::hil::uart::UART for UART {
         self.client.get().map(move |client| {
             client.transmit_complete(tx_data, kernel::hil::uart::Error::CommandComplete);
         });
+
+        ReturnCode::SUCCESS
     }
 
     #[allow(unused)]
-    fn receive(&self, rx_buffer: &'static mut [u8], rx_len: usize) {}
+    fn receive(&self, rx_buffer: &'static mut [u8], rx_len: usize) -> ReturnCode {
+        unimplemented!()
+    }
 
     fn abort_receive(&self) -> ReturnCode {
         unimplemented!()
