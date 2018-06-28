@@ -12,6 +12,7 @@ use grant::Grant;
 use mem::{AppSlice, Shared};
 use process;
 use returncode::ReturnCode;
+use sched::Kernel;
 
 struct IPCData {
     shared_memory: [Option<AppSlice<Shared, u8>>; 8],
@@ -31,12 +32,14 @@ impl Default for IPCData {
 
 pub struct IPC {
     data: Grant<IPCData>,
+    kernel: &'static Kernel,
 }
 
 impl IPC {
-    pub unsafe fn new() -> IPC {
+    pub unsafe fn new(kernel: &'static Kernel) -> IPC {
         IPC {
-            data: Grant::create(),
+            data: Grant::create(kernel),
+            kernel: kernel,
         }
     }
 
@@ -143,8 +146,8 @@ impl Driver for IPC {
         _: usize,
         appid: AppId,
     ) -> ReturnCode {
-        let procs = unsafe { &mut process::PROCS };
-        if target_id == 0 || target_id > procs.len() {
+        // let procs = unsafe { &mut process::PROCS };
+        if target_id == 0 || target_id > self.kernel.processes.len() {
             return ReturnCode::EINVAL; /* Request to IPC to impossible process */
         }
 
@@ -154,13 +157,28 @@ impl Driver for IPC {
             process::IPCType::Client
         };
 
-        procs[target_id - 1]
-            .as_mut()
-            .map(|target| {
-                target.schedule_ipc(appid, cb_type);
-                ReturnCode::SUCCESS
-            })
-            .unwrap_or(ReturnCode::EINVAL) /* Request to IPC to unknown process */
+        // self.kernel.schedule_ipc(target_id-1, appid, cb_type)
+
+        // pub fn schedule_ipc(&self, process_index: usize, appid: AppId, cb_type: usize) -> ReturnCode {
+            // if process_index == 0 || process_index > self.processes.len() {
+            //     return ReturnCode::EINVAL; /* Request to IPC to impossible process */
+            // }
+
+            self.kernel.processes[target_id-1]
+                .as_mut()
+                .map_or_else(|| {ReturnCode::EINVAL /* Request to IPC to unknown process */}, |target| {
+                    target.schedule_ipc(appid, cb_type);
+                    ReturnCode::SUCCESS
+                })
+        // }
+
+        // procs[target_id - 1]
+        //     .as_mut()
+        //     .map(|target| {
+        //         target.schedule_ipc(appid, cb_type);
+        //         ReturnCode::SUCCESS
+        //     })
+        //     .unwrap_or(ReturnCode::EINVAL) /* Request to IPC to unknown process */
     }
 
     /// allow enables processes to discover IPC services on the platform or
@@ -185,8 +203,26 @@ impl Driver for IPC {
         if target_id == 0 {
             match slice {
                 Some(slice_data) => {
-                    let procs = unsafe { &mut process::PROCS };
-                    for (i, process) in procs.iter().enumerate() {
+                    // let ret = self.kernel.process_each(|i, process| {
+                    //     let s = process.package_name.as_bytes();
+                    //     // are slices equal?
+                    //     if s.len() == slice_data.len()
+                    //         && s.iter().zip(slice_data.iter()).all(|(c1, c2)| c1 == c2)
+                    //     {
+                    //         Some(ReturnCode::SuccessWithValue {
+                    //             value: (i as usize) + 1,
+                    //         })
+                    //     } else {
+                    //         None
+                    //     }
+                    // });
+                    // if ret != ReturnCode::EINVAL {
+                    // // if ret == ReturnCode::SuccessWithValue{} {
+                    //     return ret;
+                    // }
+                    // let procs = unsafe { &mut process::PROCS };
+                    // let procs = self.kernel.processes;
+                    for (i, process) in self.kernel.processes.iter().enumerate() {
                         match process {
                             &Some(ref p) => {
                                 let s = p.package_name.as_bytes();

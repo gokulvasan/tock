@@ -11,8 +11,9 @@ use core::{mem, ptr, slice, str};
 use grant;
 
 use common::math;
-use platform::mpu;
+use platform::{Chip, mpu, Platform, systick};
 use returncode::ReturnCode;
+use sched::Kernel;
 use syscall::Syscall;
 
 /// Takes a value and rounds it up to be aligned % 8
@@ -52,7 +53,7 @@ extern "C" {
     pub fn switch_to_user(user_stack: *const u8, process_regs: &mut [usize; 8]) -> *mut u8;
 }
 
-pub static mut PROCS: &'static mut [Option<&mut Process<'static>>] = &mut [];
+
 
 /// Helper function to load processes from flash into an array of active
 /// processes. This is the default template for loading processes, but a board
@@ -65,6 +66,7 @@ pub static mut PROCS: &'static mut [Option<&mut Process<'static>>] = &mut [];
 /// provided array. How process faults are handled by the kernel is also
 /// selected.
 pub unsafe fn load_processes(
+    kernel: &'static Kernel,
     start_of_flash: *const u8,
     app_memory: &mut [u8],
     procs: &mut [Option<&mut Process<'static>>],
@@ -75,6 +77,7 @@ pub unsafe fn load_processes(
     let mut app_memory_size = app_memory.len();
     for i in 0..procs.len() {
         let (process, flash_offset, memory_offset) = Process::create(
+            kernel,
             apps_in_flash_ptr,
             app_memory_ptr,
             app_memory_size,
@@ -99,60 +102,9 @@ pub unsafe fn load_processes(
     }
 }
 
-pub fn schedule(callback: FunctionCall, appid: AppId) -> bool {
-    let procs = unsafe { &mut PROCS };
-    let idx = appid.idx();
-    if idx >= procs.len() {
-        return false;
-    }
 
-    match procs[idx] {
-        None => false,
-        Some(ref mut p) => {
-            // If this app is in the `Fault` state then we shouldn't schedule
-            // any work for it.
-            if p.current_state() == State::Fault {
-                return false;
-            }
 
-            unsafe {
-                HAVE_WORK.set(HAVE_WORK.get() + 1);
-            }
 
-            let ret = p.tasks.enqueue(Task::FunctionCall(callback));
-
-            // Make a note that we lost this callback if the enqueue function
-            // fails.
-            if ret == false {
-                p.debug
-                    .dropped_callback_count
-                    .set(p.debug.dropped_callback_count.get() + 1);
-            }
-
-            ret
-        }
-    }
-}
-
-/// Returns the full address of the start and end of the flash region that the
-/// app owns and can write to. This includes the app's code and data and any
-/// padding at the end of the app. It does not include the TBF header, or any
-/// space that the kernel is using for any potential bookkeeping.
-pub fn get_editable_flash_range(app_idx: usize) -> (usize, usize) {
-    let procs = unsafe { &mut PROCS };
-    if app_idx >= procs.len() {
-        return (0, 0);
-    }
-
-    match procs[app_idx] {
-        None => (0, 0),
-        Some(ref mut p) => {
-            let start = p.flash_non_protected_start() as usize;
-            let end = p.flash_end() as usize;
-            (start, end)
-        }
-    }
-}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Error {
@@ -190,7 +142,7 @@ pub enum IPCType {
     Client,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub enum Task {
     FunctionCall(FunctionCall),
     IPC((AppId, IPCType)),
@@ -654,6 +606,9 @@ struct ProcessDebug {
 }
 
 pub struct Process<'a> {
+    /// Pointer to the main Kernel struct.
+    kernel: &'static Kernel,
+
     /// Application memory layout:
     ///
     /// ```text
@@ -742,18 +697,31 @@ pub struct Process<'a> {
     debug: ProcessDebug,
 }
 
-// Stores the current number of callbacks enqueued + processes in Running state
-static mut HAVE_WORK: VolatileCell<usize> = VolatileCell::new(0);
-
-pub fn processes_blocked() -> bool {
-    unsafe { HAVE_WORK.get() == 0 }
-}
-
-impl<'a> Process<'a> {
-    pub fn schedule_ipc(&mut self, from: AppId, cb_type: IPCType) {
-        unsafe {
-            HAVE_WORK.set(HAVE_WORK.get() + 1);
+impl Process<'a> {
+    pub fn schedule(&self, callback: FunctionCall) -> bool {
+        // If this app is in the `Fault` state then we shouldn't schedule
+        // any work for it.
+        if self.current_state() == State::Fault {
+            return false;
         }
+
+        self.kernel.increment_work();
+
+        let ret = self.tasks.enqueue(Task::FunctionCall(callback));
+
+        // Make a note that we lost this callback if the enqueue function
+        // fails.
+        if ret == false {
+            self.debug
+                .dropped_callback_count
+                .set(self.debug.dropped_callback_count.get() + 1);
+        }
+
+        ret
+    }
+
+    pub fn schedule_ipc(&mut self, from: AppId, cb_type: IPCType) {
+        self.kernel.increment_work();
         let ret = self.tasks.enqueue(Task::IPC((from, cb_type)));
 
         // Make a note that we lost this callback if the enqueue function
@@ -772,9 +740,7 @@ impl<'a> Process<'a> {
     pub fn yield_state(&mut self) {
         if self.state == State::Running {
             self.state = State::Yielded;
-            unsafe {
-                HAVE_WORK.set(HAVE_WORK.get() - 1);
-            }
+            self.kernel.decrement_work();
         }
     }
 
@@ -790,11 +756,8 @@ impl<'a> Process<'a> {
             FaultResponse::Restart => {
                 // Remove the tasks that were scheduled for the app from the
                 // amount of work queue.
-                if HAVE_WORK.get() < self.tasks.len() {
-                    // This case should never happen.
-                    HAVE_WORK.set(0);
-                } else {
-                    HAVE_WORK.set(HAVE_WORK.get() - self.tasks.len());
+                for _ in 0..self.tasks.len() {
+                    self.kernel.decrement_work();
                 }
 
                 // And remove those tasks
@@ -840,16 +803,14 @@ impl<'a> Process<'a> {
                     r3: self.app_break as usize,
                 }));
 
-                HAVE_WORK.set(HAVE_WORK.get() + 1);
+                self.kernel.increment_work();
             }
         }
     }
 
     pub fn dequeue_task(&mut self) -> Option<Task> {
         self.tasks.dequeue().map(|cb| {
-            unsafe {
-                HAVE_WORK.set(HAVE_WORK.get() - 1);
-            }
+            self.kernel.decrement_work();
             cb
         })
     }
@@ -1010,6 +971,7 @@ impl<'a> Process<'a> {
     }
 
     pub unsafe fn create(
+        kernel: &'static Kernel,
         app_flash_address: *const u8,
         remaining_app_memory: *mut u8,
         remaining_app_memory_size: usize,
@@ -1112,6 +1074,7 @@ impl<'a> Process<'a> {
             let mut process: &mut Process =
                 &mut *(process_struct_memory_location as *mut Process<'static>);
 
+            process.kernel = kernel;
             process.memory = app_memory;
             process.header = tbf_header;
             process.kernel_memory_break = kernel_memory_break;
@@ -1170,7 +1133,7 @@ impl<'a> Process<'a> {
                 r3: process.app_break as usize,
             }));
 
-            HAVE_WORK.set(HAVE_WORK.get() + 1);
+            kernel.increment_work();
 
             return (Some(process), app_flash_size, app_ram_size);
         }
@@ -1264,7 +1227,7 @@ impl<'a> Process<'a> {
 
     /// Context switch to the process.
     pub unsafe fn push_function_call(&mut self, callback: FunctionCall) {
-        HAVE_WORK.set(HAVE_WORK.get() + 1);
+        self.kernel.increment_work();
 
         self.state = State::Running;
         // Fill in initial stack expected by SVC handler

@@ -7,6 +7,7 @@ use core::slice;
 
 use callback::AppId;
 use process;
+use sched::Kernel;
 
 #[derive(Debug)]
 pub struct Private;
@@ -14,14 +15,16 @@ pub struct Private;
 pub struct Shared;
 
 pub struct AppPtr<L, T> {
+    kernel: &'static Kernel,
     ptr: Unique<T>,
     process: AppId,
     _phantom: PhantomData<L>,
 }
 
 impl<L, T> AppPtr<L, T> {
-    unsafe fn new(ptr: *mut T, appid: AppId) -> AppPtr<L, T> {
+    unsafe fn new(kernel: &'static Kernel, ptr: *mut T, appid: AppId) -> AppPtr<L, T> {
         AppPtr {
+            kernel: kernel,
             ptr: Unique::new_unchecked(ptr),
             process: appid,
             _phantom: PhantomData,
@@ -46,7 +49,7 @@ impl<L, T> DerefMut for AppPtr<L, T> {
 impl<L, T> Drop for AppPtr<L, T> {
     fn drop(&mut self) {
         unsafe {
-            let ps = &mut process::PROCS;
+            let ps = self.kernel.processes;
             if ps.len() > self.process.idx() {
                 ps[self.process.idx()]
                     .as_mut()
@@ -57,15 +60,17 @@ impl<L, T> Drop for AppPtr<L, T> {
 }
 
 pub struct AppSlice<L, T> {
+    kernel: &'static Kernel,
     ptr: AppPtr<L, T>,
     len: usize,
 }
 
 impl<L, T> AppSlice<L, T> {
-    pub(crate) fn new(ptr: *mut T, len: usize, appid: AppId) -> AppSlice<L, T> {
+    pub(crate) fn new(kernel: &'static Kernel, ptr: *mut T, len: usize, appid: AppId) -> AppSlice<L, T> {
         unsafe {
             AppSlice {
-                ptr: AppPtr::new(ptr, appid),
+                kernel: kernel,
+                ptr: AppPtr::new(kernel, ptr, appid),
                 len: len,
             }
         }
@@ -80,7 +85,7 @@ impl<L, T> AppSlice<L, T> {
     }
 
     pub unsafe fn expose_to(&self, appid: AppId) -> bool {
-        let ps = &mut process::PROCS;
+        let ps = &mut self.kernel.processes;
         if appid.idx() != self.ptr.process.idx() && ps.len() > appid.idx() {
             ps[appid.idx()]
                 .as_ref()

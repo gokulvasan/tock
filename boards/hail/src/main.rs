@@ -79,7 +79,7 @@ struct Hail {
     led: &'static capsules::led::LED<'static, sam4l::gpio::GPIOPin>,
     button: &'static capsules::button::Button<'static, sam4l::gpio::GPIOPin>,
     rng: &'static capsules::rng::SimpleRng<'static, sam4l::trng::Trng<'static>>,
-    ipc: kernel::ipc::IPC,
+    ipc: &'static kernel::ipc::IPC,
     crc: &'static capsules::crc::Crc<'static, sam4l::crccu::Crccu<'static>>,
     dac: &'static capsules::dac::Dac<'static>,
 }
@@ -111,7 +111,7 @@ impl Platform for Hail {
 
             capsules::dac::DRIVER_NUM => f(Some(self.dac)),
 
-            kernel::ipc::DRIVER_NUM => f(Some(&self.ipc)),
+            kernel::ipc::DRIVER_NUM => f(Some(self.ipc)),
             _ => f(None),
         }
     }
@@ -447,6 +447,17 @@ pub unsafe fn reset_handler() {
         capsules::dac::Dac::new(&mut sam4l::dac::DAC)
     );
 
+    let board_kernel = static_init!(
+        kernel::Kernel,
+        kernel::Kernel::new(&mut PROCESSES)
+    );
+    kernel::debug::set_kernel(board_kernel);
+
+    let ipc = static_init!(
+        kernel::ipc::IPC,
+        kernel::ipc::IPC::new(board_kernel)
+    );
+
     let hail = Hail {
         console: console,
         gpio: gpio,
@@ -461,7 +472,7 @@ pub unsafe fn reset_handler() {
         led: led,
         button: button,
         rng: rng,
-        ipc: kernel::ipc::IPC::new(),
+        ipc: ipc,
         crc: crc,
         dac: dac,
     };
@@ -496,10 +507,11 @@ pub unsafe fn reset_handler() {
     }
 
     kernel::procs::load_processes(
+        board_kernel,
         &_sapps as *const u8,
         &mut APP_MEMORY,
         &mut PROCESSES,
         FAULT_RESPONSE,
     );
-    kernel::kernel_loop(&hail, &mut chip, &mut PROCESSES, Some(&hail.ipc));
+    board_kernel.kernel_loop(&hail, &mut chip, Some(hail.ipc));
 }

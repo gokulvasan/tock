@@ -33,17 +33,19 @@
 //! TOCK_DEBUG(0): /tock/capsules/src/sensys.rs:24: got here
 //! ```
 
-use callback::{AppId, Callback};
 use core::cmp::min;
 use core::fmt::{write, Arguments, Result, Write};
 use core::panic::PanicInfo;
 use core::ptr::{read_volatile, write_volatile};
 use core::{slice, str};
+
+use callback::{AppId, Callback};
 use driver::Driver;
 use hil;
 use mem::AppSlice;
 use process;
 use returncode::ReturnCode;
+use sched::Kernel;
 
 ///////////////////////////////////////////////////////////////////
 // panic! support routines
@@ -103,21 +105,21 @@ pub unsafe fn panic_banner<W: Write>(writer: &mut W, panic_info: &PanicInfo) {
 ///
 /// **NOTE:** The supplied `writer` must be synchronous.
 pub unsafe fn panic_process_info<W: Write>(writer: &mut W) {
-    // Print fault status once
-    let procs = &mut process::PROCS;
-    if !procs.is_empty() {
-        procs[0].as_mut().map(|process| {
-            process.fault_str(writer);
-        });
-    }
+    // // Print fault status once
+    // let procs = &mut process::PROCS;
+    // if !procs.is_empty() {
+    //     procs[0].as_mut().map(|process| {
+    //         process.fault_str(writer);
+    //     });
+    // }
 
-    // print data about each process
-    let _ = writer.write_fmt(format_args!("\r\n---| App Status |---\r\n"));
-    for idx in 0..procs.len() {
-        procs[idx].as_mut().map(|process| {
-            process.statistics_str(writer);
-        });
-    }
+    // // print data about each process
+    // let _ = writer.write_fmt(format_args!("\r\n---| App Status |---\r\n"));
+    // for idx in 0..procs.len() {
+    //     procs[idx].as_mut().map(|process| {
+    //         process.statistics_str(writer);
+    //     });
+    // }
 }
 
 /// Blinks a recognizable pattern forever.
@@ -195,6 +197,7 @@ pub struct DebugWriter {
     output_tail: usize,
     output_active_len: usize,
     count: usize,
+    kernel: Option<&'static Kernel>,
 }
 
 static mut DEBUG_WRITER: DebugWriter = DebugWriter {
@@ -205,6 +208,7 @@ static mut DEBUG_WRITER: DebugWriter = DebugWriter {
     output_tail: 0,       // one past last valid index (wraps to 0)
     output_active_len: 0, // how big is the current transaction?
     count: 0,             // how many debug! calls
+    kernel: None,
 };
 
 pub unsafe fn assign_console_driver<T>(driver: Option<&'static Driver>, grant: &mut T) {
@@ -218,6 +222,10 @@ pub unsafe fn get_grant<T>() -> *mut T {
         Some(grant) => grant as *mut T,
         None => panic!("Request for unallocated kernel grant"),
     }
+}
+
+pub unsafe fn set_kernel<T>(kernel: &'static Kernel) {
+    DEBUG_WRITER.kernel = Some(kernel);
 }
 
 impl DebugWriter {
@@ -269,12 +277,13 @@ impl DebugWriter {
                     };
 
                     let slice = AppSlice::new(
+                        self.kernel.unwrap(),
                         self.output_buffer.as_mut_ptr().offset(start as isize),
                         end - start,
-                        AppId::kernel_new(APPID_IDX),
+                        AppId::kernel_new(self.kernel.unwrap(), APPID_IDX),
                     );
                     let slice_len = slice.len();
-                    if driver.allow(AppId::kernel_new(APPID_IDX), 1, Some(slice))
+                    if driver.allow(AppId::kernel_new(self.kernel.unwrap(), APPID_IDX), 1, Some(slice))
                         != ReturnCode::SUCCESS
                     {
                         panic!("Debug print allow fail");
@@ -283,12 +292,12 @@ impl DebugWriter {
                     if driver.subscribe(
                         1,
                         Some(KERNEL_CONSOLE_CALLBACK),
-                        AppId::kernel_new(APPID_IDX),
+                        AppId::kernel_new(self.kernel.unwrap(), APPID_IDX),
                     ) != ReturnCode::SUCCESS
                     {
                         panic!("Debug print subscribe fail");
                     }
-                    if driver.command(1, slice_len, 0, AppId::kernel_new(APPID_IDX))
+                    if driver.command(1, slice_len, 0, AppId::kernel_new(self.kernel.unwrap(), APPID_IDX))
                         != ReturnCode::SUCCESS
                     {
                         panic!("Debug print command fail");
@@ -342,7 +351,7 @@ impl DebugWriter {
 unsafe impl Sync for Callback {}
 
 static KERNEL_CONSOLE_CALLBACK: Callback =
-    Callback::kernel_new(AppId::kernel_new(APPID_IDX), DebugWriter::callback);
+    Callback::kernel_new(DEBUG_WRITER.kernel.unwrap(), AppId::kernel_new(DEBUG_WRITER.kernel.unwrap(), APPID_IDX), DebugWriter::callback);
 
 impl Write for DebugWriter {
     fn write_str(&mut self, s: &str) -> Result {

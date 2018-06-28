@@ -8,6 +8,7 @@
 
 #![feature(asm, core_intrinsics, unique, ptr_internals, const_fn)]
 #![feature(use_extern_macros, try_from, used)]
+#![feature(infer_outlives_requirements, in_band_lifetimes)]
 #![no_std]
 
 extern crate tock_cells;
@@ -41,7 +42,7 @@ pub use platform::systick::SysTick;
 pub use platform::{mpu, Chip, Platform};
 pub use platform::{ClockInterface, NoClockControl, NO_CLOCK_CONTROL};
 pub use returncode::ReturnCode;
-pub use sched::kernel_loop;
+pub use sched::Kernel;
 
 // Export only select items from the process module. To remove the name conflict
 // this cannot be called `process`, so we use a shortened version. These

@@ -1,24 +1,28 @@
 //! Data structure to store a list of userspace applications.
 
-use callback::AppId;
 use core::marker::PhantomData;
 use core::mem::size_of;
 use core::ops::{Deref, DerefMut};
 use core::ptr::{read_volatile, write_volatile, Unique};
+
+use callback::AppId;
 use debug;
 use process::{self, Error};
+use sched::Kernel;
 
 pub static mut CONTAINER_COUNTER: usize = 0;
 
 pub struct Grant<T: Default> {
     grant_num: usize,
     ptr: PhantomData<T>,
+    kernel: &'static Kernel,
 }
 
 pub struct AppliedGrant<T> {
     appid: usize,
     grant: *mut T,
     _phantom: PhantomData<T>,
+    kernel: &'static Kernel,
 }
 
 /// This function contains the mapping of kernel "app" numbers to their
@@ -41,23 +45,27 @@ impl<T> AppliedGrant<T> {
     {
         if AppId::is_kernel_idx(self.appid) {
             let mut allocator = Allocator {
+                kernel: self.kernel,
                 app: None,
                 app_id: self.appid,
             };
-            let mut root = unsafe { Owned::new(self.grant, self.appid) };
+            let mut root = unsafe { Owned::new(self.kernel, self.grant, self.appid) };
             fun(&mut root, &mut allocator)
         } else {
             let mut allocator = Allocator {
-                app: unsafe { process::PROCS[self.appid].as_mut() },
+                kernel: self.kernel,
+                // app: unsafe { process::PROCS[self.appid].as_mut() },
+                app:  self.kernel.processes[self.appid].as_mut(),
                 app_id: self.appid,
             };
-            let mut root = unsafe { Owned::new(self.grant, self.appid) };
+            let mut root = unsafe { Owned::new(self.kernel, self.grant, self.appid) };
             fun(&mut root, &mut allocator)
         }
     }
 }
 
 pub struct Allocator<'a> {
+    kernel: &'static Kernel,
     app: Option<&'a mut &'a mut process::Process<'a>>,
     app_id: usize,
 }
@@ -65,18 +73,20 @@ pub struct Allocator<'a> {
 pub struct Owned<T: ?Sized> {
     data: Unique<T>,
     app_id: usize,
+    kernel: &'static Kernel,
 }
 
 impl<T: ?Sized> Owned<T> {
-    unsafe fn new(data: *mut T, app_id: usize) -> Owned<T> {
+    unsafe fn new(kernel: &'static Kernel, data: *mut T, app_id: usize) -> Owned<T> {
         Owned {
             data: Unique::new_unchecked(data),
             app_id: app_id,
+            kernel: kernel,
         }
     }
 
     pub fn appid(&self) -> AppId {
-        AppId::new(self.app_id)
+        AppId::new(self.kernel, self.app_id)
     }
 }
 
@@ -89,7 +99,7 @@ impl<T: ?Sized> Drop for Owned<T> {
                 /* kernel free is nop */
 ;
             } else {
-                match process::PROCS[app_id] {
+                match self.kernel.processes[app_id] {
                     None => {}
                     Some(ref mut app) => {
                         app.free(data);
@@ -121,7 +131,7 @@ impl<'a> Allocator<'a> {
                 Some(app) => app
                     .alloc(size_of::<T>())
                     .map_or(Err(Error::OutOfMemory), |arr| {
-                        let mut owned = Owned::new(arr.as_mut_ptr() as *mut T, app_id);
+                        let mut owned = Owned::new(self.kernel, arr.as_mut_ptr() as *mut T, app_id);
                         *owned = data;
                         Ok(owned)
                     }),
@@ -137,20 +147,22 @@ impl<'a> Allocator<'a> {
 }
 
 pub struct Borrowed<'a, T: 'a + ?Sized> {
+    kernel: &'static Kernel,
     data: &'a mut T,
     app_id: usize,
 }
 
 impl<'a, T: 'a + ?Sized> Borrowed<'a, T> {
-    pub fn new(data: &'a mut T, app_id: usize) -> Borrowed<T> {
+    pub fn new(kernel: &'static Kernel, data: &'a mut T, app_id: usize) -> Borrowed<'a, T> {
         Borrowed {
+            kernel: kernel,
             data: data,
             app_id: app_id,
         }
     }
 
     pub fn appid(&self) -> AppId {
-        AppId::new(self.app_id)
+        AppId::new(self.kernel, self.app_id)
     }
 }
 
@@ -168,12 +180,13 @@ impl<'a, T: 'a + ?Sized> DerefMut for Borrowed<'a, T> {
 }
 
 impl<T: Default> Grant<T> {
-    pub unsafe fn create() -> Grant<T> {
+    pub unsafe fn create(kernel: &'static Kernel) -> Grant<T> {
         let ctr = read_volatile(&CONTAINER_COUNTER);
         write_volatile(&mut CONTAINER_COUNTER, ctr + 1);
         Grant {
             grant_num: ctr,
             ptr: PhantomData,
+            kernel: kernel,
         }
     }
 
@@ -186,9 +199,10 @@ impl<T: Default> Grant<T> {
                     appid: app_id,
                     grant: cntr,
                     _phantom: PhantomData,
+                    kernel: self.kernel,
                 })
             } else {
-                match process::PROCS[app_id] {
+                match self.kernel.processes[app_id] {
                     Some(ref mut app) => {
                         let cntr = app.grant_for::<T>(self.grant_num);
                         if cntr.is_null() {
@@ -198,6 +212,7 @@ impl<T: Default> Grant<T> {
                                 appid: app_id,
                                 grant: cntr,
                                 _phantom: PhantomData,
+                                kernel: self.kernel,
                             })
                         }
                     }
@@ -216,20 +231,22 @@ impl<T: Default> Grant<T> {
             let app_id = appid.idx();
             if AppId::is_kernel(appid) {
                 let root_ptr = kernel_grant_for::<T>(app_id);
-                let mut root = Borrowed::new(&mut *root_ptr, app_id);
+                let mut root = Borrowed::new(self.kernel, &mut *root_ptr, app_id);
                 let mut allocator = Allocator {
+                    kernel: self.kernel,
                     app: None,
                     app_id: app_id,
                 };
                 let res = fun(&mut root, &mut allocator);
                 Ok(res)
             } else {
-                match process::PROCS[app_id] {
+                match self.kernel.processes[app_id] {
                     Some(ref mut app) => app.grant_for_or_alloc::<T>(self.grant_num).map_or(
                         Err(Error::OutOfMemory),
                         move |root_ptr| {
-                            let mut root = Borrowed::new(&mut *root_ptr, app_id);
+                            let mut root = Borrowed::new(self.kernel, &mut *root_ptr, app_id);
                             let mut allocator = Allocator {
+                                kernel: self.kernel,
                                 app: Some(app),
                                 app_id: app_id,
                             };
@@ -247,36 +264,38 @@ impl<T: Default> Grant<T> {
     where
         F: Fn(&mut Owned<T>),
     {
-        unsafe {
-            let itr = process::PROCS.iter_mut().filter_map(|p| p.as_mut());
-            for (app_id, app) in itr.enumerate() {
-                let root_ptr = app.grant_for::<T>(self.grant_num);
-                if !root_ptr.is_null() {
-                    let mut root = Owned::new(root_ptr, app_id);
-                    fun(&mut root);
-                }
-            }
-            // After iterating all possible normal apps, try the debug app.
-            let root_ptr = kernel_grant_for::<T>(debug::APPID_IDX);
+        // unsafe {
+        let itr = self.kernel.processes.iter_mut().filter_map(|p| p.as_mut());
+        for (app_id, app) in itr.enumerate() {
+            let root_ptr = app.grant_for::<T>(self.grant_num);
             if !root_ptr.is_null() {
-                let mut root = Owned::new(root_ptr, debug::APPID_IDX);
+                let mut root = Owned::new(self.kernel, root_ptr, app_id);
                 fun(&mut root);
             }
         }
+        // After iterating all possible normal apps, try the debug app.
+        let root_ptr = kernel_grant_for::<T>(debug::APPID_IDX);
+        if !root_ptr.is_null() {
+            let mut root = Owned::new(self.kernel, root_ptr, debug::APPID_IDX);
+            fun(&mut root);
+        }
+        // }
     }
 
     pub fn iter(&self) -> Iter<T> {
         unsafe {
             Iter {
+                kernel: self.kernel,
                 grant: self,
                 index: 0,
-                len: process::PROCS.len(),
+                len: self.kernel.processes.len(),
             }
         }
     }
 }
 
 pub struct Iter<'a, T: 'a + Default> {
+    kernel: &'static Kernel,
     grant: &'a Grant<T>,
     index: usize,
     len: usize,
@@ -289,7 +308,7 @@ impl<'a, T: Default> Iterator for Iter<'a, T> {
         while self.index < self.len {
             let idx = self.index;
             self.index += 1;
-            let res = self.grant.grant(AppId::new(idx));
+            let res = self.grant.grant(AppId::new(self.kernel, idx));
             if res.is_some() {
                 return res;
             }
@@ -298,7 +317,7 @@ impl<'a, T: Default> Iterator for Iter<'a, T> {
         // the grant iterator in case it has state the capsule needs to process.
         if self.index == self.len {
             self.index += 1;
-            let res = self.grant.grant(AppId::new(debug::APPID_IDX));
+            let res = self.grant.grant(AppId::new(self.kernel, debug::APPID_IDX));
             if res.is_some() {
                 return res;
             }
