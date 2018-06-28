@@ -30,7 +30,7 @@ pub struct Kernel {
     work: NumCell<usize>,
     // platform: &'static P,
     // chip: &'static mut C,
-    pub processes: &'static mut [Option<&'static mut Process<'static>>],
+    processes: &'static mut [Option<&'static mut Process<'static>>],
     // ipc: Option<&'static ipc::IPC>,
 
 }
@@ -78,28 +78,28 @@ impl Kernel {
     //         })
     // }
 
-    // pub fn process_each(&self, closure: F) -> ReturnCode
-    // where
-    //     F: FnOnce(usize, &'static mut Process<'static>) -> Option<ReturnCode>,
-    // {
-    //     for (i, process) in self.processes.iter().enumerate() {
-    //         match process {
-    //             &Some(ref p) => {
-    //                 let ret = closure(i, process);
-    //                 if ret.is_some() {
-    //                     return ret.unwrap();
-    //                 }
-    //                 // });
-    //             }
-    //             &None => {}
-    //         }
-    //     }
-    //     ReturnCode::EINVAL
-    // }
+    pub fn process_each(&self, closure: F) -> ReturnCode
+    where
+        F: FnOnce(usize, &'static mut Process<'static>) -> Option<ReturnCode>,
+    {
+        for (i, process) in self.processes.iter().enumerate() {
+            match process {
+                &Some(ref p) => {
+                    let ret = closure(i, p);
+                    if ret.is_some() {
+                        return ret.unwrap();
+                    }
+                    // });
+                }
+                &None => {}
+            }
+        }
+        ReturnCode::EINVAL
+    }
 
     /// Main loop.
     pub fn kernel_loop<P: Platform, C: Chip>(
-        &self,
+        &'static self,
         platform: &P,
         chip: &mut C,
         processes: &'static mut [Option<&mut process::Process<'static>>],
@@ -116,7 +116,7 @@ impl Kernel {
 
                 for (i, p) in self.processes.iter_mut().enumerate() {
                     p.as_mut().map(|process| {
-                        // self.do_process(platform, chip, process, callback::AppId::new(self, i), ipc);
+                        self.do_process(platform, chip, process, callback::AppId::new(self, i), ipc);
                     });
                     if chip.has_pending_interrupts() {
                         break;
@@ -133,7 +133,7 @@ impl Kernel {
     }
 
     unsafe fn do_process<P: Platform, C: Chip>(
-        &self,
+        &'static self,
         platform: &P,
         chip: &mut C,
         process: &mut Process,
@@ -224,13 +224,13 @@ impl Kernel {
                     let appdata = process.r3();
 
                     let callback_ptr = NonNull::new(callback_ptr_raw);
-                    // let callback = callback_ptr.map(|ptr| Callback::new(self, appid, appdata, ptr.cast()));
+                    let callback = callback_ptr.map(|ptr| Callback::new(self, appid, appdata, ptr.cast()));
 
-                    // let res = platform.with_driver(driver_num, |driver| match driver {
-                    //     Some(d) => d.subscribe(subdriver_num, callback, appid),
-                    //     None => ReturnCode::ENODEVICE,
-                    // });
-                    // process.set_return_code(res);
+                    let res = platform.with_driver(driver_num, |driver| match driver {
+                        Some(d) => d.subscribe(subdriver_num, callback, appid),
+                        None => ReturnCode::ENODEVICE,
+                    });
+                    process.set_return_code(res);
                 }
                 Some(Syscall::COMMAND) => {
                     let res = platform.with_driver(process.r0(), |driver| match driver {
@@ -247,9 +247,9 @@ impl Kernel {
                                 if start_addr != ptr::null_mut() {
                                     let size = process.r3();
                                     if process.in_exposed_bounds(start_addr, size) {
-                                        // let slice = AppSlice::new(self, start_addr as *mut u8, size, appid);
-                                        // d.allow(appid, process.r1(), Some(slice))
-                ReturnCode::EINVAL
+                                        let slice = AppSlice::new(self, start_addr as *mut u8, size, appid);
+                                        d.allow(appid, process.r1(), Some(slice))
+                // ReturnCode::EINVAL
                                     } else {
                                         ReturnCode::EINVAL /* memory not allocated to process */
                                     }
