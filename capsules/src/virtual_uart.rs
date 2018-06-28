@@ -49,7 +49,6 @@ pub static mut RX_BUF: [u8; 64] = [0; 64];
 pub struct UartMux<'a> {
     uart: &'a hil::uart::UART,
     devices: List<'a, UartDevice<'a>>,
-    receive_in_progress: Cell<bool>,
     inflight: OptionalCell<&'a UartDevice<'a>>,
     rx_buffer: TakeCell<'static, [u8]>,
 }
@@ -82,7 +81,6 @@ impl<'a> hil::uart::Client for UartMux<'a> {
             }
         });
         self.rx_buffer.replace(rx_buffer);
-        self.receive_in_progress.set(false);
     }
 }
 
@@ -91,7 +89,6 @@ impl<'a> UartMux<'a> {
         UartMux {
             uart: uart,
             devices: List::new(),
-            receive_in_progress: Cell::new(false),
             inflight: OptionalCell::empty(),
             rx_buffer: TakeCell::new(rx_buffer),
         }
@@ -114,13 +111,10 @@ impl<'a> UartMux<'a> {
 
     /// If we are not currently listening, start listening.
     fn start_receive(&self, rx_len: usize) {
-        if self.receive_in_progress.get() == false {
-            self.rx_buffer.take().map(|rxbuf| {
-                self.receive_in_progress.set(true);
-                let len = cmp::min(rx_len, rxbuf.len());
-                self.uart.receive(rxbuf, len);
-            });
-        }
+        self.rx_buffer.take().map(|rxbuf| {
+            let len = cmp::min(rx_len, rxbuf.len());
+            self.uart.receive(rxbuf, len);
+        });
     }
 }
 
