@@ -3,6 +3,7 @@ use kernel::common::cells::TakeCell;
 use kernel::common::cells::VolatileCell;
 use kernel::common::StaticRef;
 use kernel::hil::uart;
+use kernel::ReturnCode;
 use nrf5x::pinmux::Pinmux;
 
 pub static mut UART0: UART = UART::new();
@@ -229,7 +230,7 @@ impl uart::UART for UART {
         }
     }
 
-    fn abort_receive(&self) {
+    fn abort_receive(&self) -> ReturnCode {
         unimplemented!()
     }
 }

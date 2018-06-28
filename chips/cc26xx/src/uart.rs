@@ -7,6 +7,7 @@ use kernel::common::regs::{ReadOnly, ReadWrite, WriteOnly};
 use kernel::common::StaticRef;
 use kernel::hil::gpio::Pin;
 use kernel::hil::uart;
+use kernel::ReturnCode;
 use prcm;
 
 const MCU_CLOCK: u32 = 48_000_000;
@@ -221,7 +222,7 @@ impl kernel::hil::uart::UART for UART {
     #[allow(unused)]
     fn receive(&self, rx_buffer: &'static mut [u8], rx_len: usize) {}
 
-    fn abort_receive(&self) {
+    fn abort_receive(&self) -> ReturnCode {
         unimplemented!()
     }
 }

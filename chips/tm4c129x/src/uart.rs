@@ -5,6 +5,7 @@ use kernel::common::cells::TakeCell;
 use kernel::common::cells::VolatileCell;
 use kernel::common::StaticRef;
 use kernel::hil;
+use kernel::ReturnCode;
 use sysctl;
 
 #[repr(C)]
@@ -187,7 +188,7 @@ impl hil::uart::UART for UART {
         unimplemented!()
     }
 
-    fn abort_receive(&self) {
+    fn abort_receive(&self) -> ReturnCode {
         unimplemented!()
     }
 }
