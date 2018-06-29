@@ -166,9 +166,8 @@ impl UART {
 }
 
 impl hil::uart::UART for UART {
-    fn set_client(&self, client: &'static hil::uart::Client) -> ReturnCode {
+    fn set_client(&self, client: &'static hil::uart::Client) {
         self.client.set(Some(client));
-        ReturnCode::SUCCESS
     }
 
     fn init(&self, params: hil::uart::UARTParams) -> ReturnCode {

@@ -195,9 +195,8 @@ impl UART {
 }
 
 impl kernel::hil::uart::UART for UART {
-    fn set_client(&self, client: &'static kernel::hil::uart::Client) -> ReturnCode {
+    fn set_client(&self, client: &'static kernel::hil::uart::Client) {
         self.client.set(Some(client));
-        ReturnCode::SUCCESS
     }
 
     fn init(&self, params: kernel::hil::uart::UARTParams) -> ReturnCode {

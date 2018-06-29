@@ -798,10 +798,9 @@ impl dma::DMAClient for USART {
 
 /// Implementation of kernel::hil::UART
 impl hil::uart::UART for USART {
-    fn set_client(&self, client: &'static hil::uart::Client) -> ReturnCode {
+    fn set_client(&self, client: &'static hil::uart::Client) {
         let c = UsartClient::Uart(client);
         self.client.set(Some(c));
-        ReturnCode::SUCCESS
     }
 
     fn init(&self, params: hil::uart::UARTParams) -> ReturnCode {

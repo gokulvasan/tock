@@ -192,9 +192,8 @@ impl UART {
 }
 
 impl uart::UART for UART {
-    fn set_client(&self, client: &'static uart::Client) -> ReturnCode {
+    fn set_client(&self, client: &'static uart::Client) {
         self.client.set(Some(client));
-        ReturnCode::SUCCESS
     }
 
     fn init(&self, params: uart::UARTParams) -> ReturnCode {

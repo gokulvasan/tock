@@ -51,7 +51,7 @@ pub enum Error {
 pub trait UART {
     /// Set the client for this UART peripheral. The client will be
     /// called when events finish.
-    fn set_client(&self, client: &'static Client) -> ReturnCode;
+    fn set_client(&self, client: &'static Client);
 
     /// Initialize UART
     ///

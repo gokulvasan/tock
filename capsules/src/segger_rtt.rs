@@ -183,9 +183,8 @@ impl<'a, A: hil::time::Alarm + 'a> SeggerRtt<'a, A> {
 }
 
 impl<'a, A: hil::time::Alarm + 'a> hil::uart::UART for SeggerRtt<'a, A> {
-    fn set_client(&self, client: &'static hil::uart::Client) -> ReturnCode {
+    fn set_client(&self, client: &'static hil::uart::Client) {
         self.client.set(client);
-        ReturnCode::SUCCESS
     }
 
     fn init(&self, _params: hil::uart::UARTParams) -> ReturnCode {
